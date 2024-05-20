@@ -11,10 +11,12 @@ if (-not $ShowOllama -and -not $ShowWebUI -and -not $UpdateOllama -and -not $Upd
 }
 
 if ($ShowOllama) {
+    wsl -e docker start ollama
     wsl -e docker exec -it ollama ollama -v
 }
 
 if ($ShowWebUI) {
+    wsl -e docker start open-webui
     wsl -e docker exec -it open-webui cat /app/package.json | jq .version
 }
 
