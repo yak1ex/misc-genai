@@ -1,4 +1,9 @@
 *.png
+*.jpg
+*.jpeg
+*.avif
+*.webp
+*.gif
 __pycache__
 .mypy_cache
 env.py
