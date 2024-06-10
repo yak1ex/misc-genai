@@ -1,0 +1,4 @@
+piexif
+pillow
+pillow-avif-plugin
+requests
