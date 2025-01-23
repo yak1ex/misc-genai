@@ -58,10 +58,10 @@ def get_base_model(metadata):
         metadata = [metadata]
     for key in base_model_keys:
         for data in metadata:
-            if key in data:
-                print(data[key])
-                if data[key] in normalize_map:
-                    return normalize_map[data[key]]
+            if value := data.get(key):
+                print(value)
+                if base_model := normalize_map.get(value):
+                    return base_model
     return 'unkn'
 
 
