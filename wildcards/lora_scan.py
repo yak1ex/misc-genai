@@ -7,8 +7,8 @@ from pathlib import Path
 
 def read_from_safetensors(inpath):
     with inpath.open('rb') as infile:
-        bytes = infile.read(8)
-        header_bytes = (struct.unpack('<Q', bytes))[0]
+        num_bytes = infile.read(8)
+        header_bytes = (struct.unpack('<Q', num_bytes))[0]
         header = infile.read(header_bytes).decode('utf-8')
         data = json.loads(header)
         return data['__metadata__']
