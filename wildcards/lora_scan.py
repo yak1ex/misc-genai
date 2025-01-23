@@ -47,6 +47,11 @@ normalize_map = {
     'SDXL': 'sdxl',
 }
 
+description_keys = [
+    ('model', 'description'),
+    ('ModelDescription',),
+    ('description',),
+]
 
 def get_base_model(metadata):
     if not isinstance(metadata, list):
@@ -58,6 +63,19 @@ def get_base_model(metadata):
                 if data[key] in normalize_map:
                     return normalize_map[data[key]]
     return 'unkn'
+
+
+def get_description(metadata) -> str:
+    if not isinstance(metadata, list):
+        metadata = [metadata]
+    for keys in description_keys:
+        for data in metadata:
+            cur_data = data
+            for key in keys:
+                cur_data = cur_data.get(key, {})
+            if cur_data != {}:
+                return cur_data
+    return ''
 
 
 if __name__ == '__main__':
@@ -78,3 +96,6 @@ if __name__ == '__main__':
     print('all', get_base_model(result))
     for idx,data in enumerate(result):
         print(idx, get_base_model(data))
+    print('all', get_description(result))
+    for idx,data in enumerate(result):
+        print(idx, get_description(data))
