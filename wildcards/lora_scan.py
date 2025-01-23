@@ -1,6 +1,7 @@
 import argparse
 import struct
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -59,7 +60,7 @@ def get_base_model(metadata):
     for key in base_model_keys:
         for data in metadata:
             if value := data.get(key):
-                print(value)
+                logging.debug(value)
                 if base_model := normalize_map.get(value):
                     return base_model
     return 'unkn'
@@ -84,8 +85,13 @@ if __name__ == '__main__':
         description='Scan LORA files and make support files for wildcards'
     )
     parser.add_argument('filename')
+    parser.add_argument('--log', type=str, default='WARN')
     args = parser.parse_args()
 
+    log_level = getattr(logging, args.log.upper())
+    if not isinstance(log_level, int):
+        raise ValueError('Invalid log level: %s' % args.log)
+    logging.basicConfig(level=log_level)
     target = Path(args.filename)
     basename = target.with_suffix('')
     result = []
@@ -93,9 +99,9 @@ if __name__ == '__main__':
         p = Path(f'{basename}.{suffix}')
         if p.exists():
             result.append(reader(p))
-    print('all', get_base_model(result))
+    print(get_base_model(result))
     for idx,data in enumerate(result):
-        print(idx, get_base_model(data))
-    print('all', get_description(result))
+        logging.debug(idx, get_base_model(data))
+    print(get_description(result))
     for idx,data in enumerate(result):
-        print(idx, get_description(data))
+        logging.debug(idx, get_description(data))
