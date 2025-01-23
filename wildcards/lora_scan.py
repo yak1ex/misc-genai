@@ -40,7 +40,7 @@ normalize_map = {
 
 
 def get_base_model(metadata):
-    if isinstance(metadata, list):
+    if not isinstance(metadata, list):
         metadata = [metadata]
     for key in base_model_keys:
         for data in metadata:
