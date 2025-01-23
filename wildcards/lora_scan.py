@@ -36,7 +36,11 @@ base_model_keys = [
 normalize_map = {
     'sd_1.5': 'sd15',
     'SD 1.5': 'sd15',
-    'SD1': 'sd15'
+    'SD1': 'sd15',
+    'Illustrious': 'ilxl',
+    'Pony': 'pony',
+    'SDXL 1.0': 'sdxl',
+    'SDXL': 'sdxl',
 }
 
 
