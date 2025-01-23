@@ -1,5 +1,6 @@
 import struct
 import json
+import sys
 from pathlib import Path
 
 
@@ -50,7 +51,8 @@ def get_base_model(metadata):
     return 'unkn'
 
 
-basename = 'age_slider_v20'
+target = Path(sys.argv[1])
+basename = target.with_suffix('')
 result = []
 for suffix, reader in readers.items():
     p = Path(f'{basename}.{suffix}')
