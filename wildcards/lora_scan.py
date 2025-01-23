@@ -29,7 +29,7 @@ base_model_keys = [
     'ss_base_model_version',
     'baseModel',
     'BaseModel',
-    'sd version'
+    'sd version',
 ]
 
 normalize_map = {
