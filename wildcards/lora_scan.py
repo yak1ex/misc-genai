@@ -50,6 +50,7 @@ def get_base_model(metadata):
     for key in base_model_keys:
         for data in metadata:
             if key in data:
+                print(data[key])
                 if data[key] in normalize_map:
                     return normalize_map[data[key]]
     return 'unkn'
@@ -62,5 +63,6 @@ for suffix, reader in readers.items():
     p = Path(f'{basename}.{suffix}')
     if p.exists():
         result.append(reader(p))
-for i in result:
-    print(get_base_model(i))
+print('all', get_base_model(result))
+for idx,data in enumerate(result):
+    print(idx, get_base_model(data))
