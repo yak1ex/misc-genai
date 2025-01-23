@@ -1,3 +1,4 @@
+import argparse
 import struct
 import json
 import sys
@@ -59,13 +60,21 @@ def get_base_model(metadata):
     return 'unkn'
 
 
-target = Path(sys.argv[1])
-basename = target.with_suffix('')
-result = []
-for suffix, reader in readers.items():
-    p = Path(f'{basename}.{suffix}')
-    if p.exists():
-        result.append(reader(p))
-print('all', get_base_model(result))
-for idx,data in enumerate(result):
-    print(idx, get_base_model(data))
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        prog='lora_scan.py',
+        description='Scan LORA files and make support files for wildcards'
+    )
+    parser.add_argument('filename')
+    args = parser.parse_args()
+
+    target = Path(args.filename)
+    basename = target.with_suffix('')
+    result = []
+    for suffix, reader in readers.items():
+        p = Path(f'{basename}.{suffix}')
+        if p.exists():
+            result.append(reader(p))
+    print('all', get_base_model(result))
+    for idx,data in enumerate(result):
+        print(idx, get_base_model(data))
