@@ -19,11 +19,14 @@ def read_from_json(inpath):
         return data
 
 
+# r'weights?\s*(around|of|from|)\s*(\d+(?:\.\d+)?)(?:(?:-|~|to)\s*(\d+(?:\.\d+)?))'
+# r'(\d+(?:\.\d+))\s*(?:(?:-|~|to)\s*(\d+(?:\.\d+)))\s*weights?'
+
 readers = {
+    'civitai.info': read_from_json, # (model,description)
+    'cm-info.json': read_from_json, # ModelDescription
+    'json': read_from_json, # description
     'safetensors': read_from_safetensors,
-    'civitai.info': read_from_json,
-    'cm-info.json': read_from_json,
-    'json': read_from_json
 }
 
 base_model_keys = [
