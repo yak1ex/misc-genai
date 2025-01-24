@@ -10,4 +10,5 @@ env.py
 wildcards/*.*
 !wildcards/*.py
 !wildcards/*.jinja
+wildcards/mine/common.yaml
 venv/

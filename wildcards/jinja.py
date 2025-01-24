@@ -1,7 +1,7 @@
 from jinja2 import Template, Environment, FileSystemLoader
 
 
-env = Environment(loader=FileSystemLoader('./wildcards'))
+env = Environment(loader=FileSystemLoader('.'))
 template = env.get_template('mine/test.jinja')
 
 data = {
