@@ -146,6 +146,8 @@ override_list_footer = """\
 def override_list_file(target: Path, output_stream: TextIO):
     metadata_list = get_metadata_list(target)
     actual_base_model = get_base_model(metadata_list)
+    if actual_base_model == 'unkn':
+        logging.warning(f"Can't detect base model of {target.name}")
     inferred_base_model = get_base_model_from_name(target)
     if actual_base_model != inferred_base_model:
         print(f"{{% set result = '{actual_base_model}' "
