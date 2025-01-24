@@ -49,6 +49,15 @@ normalize_map = {
     'SDXL': 'sdxl',
 }
 
+model_key_map = {
+    'ilxl': 'ilxl',
+    'ill': 'ilxl',
+    'pdxl': 'pony',
+    'pony': 'pony',
+    'xl': 'sdxl',
+    '': 'sd15',
+}
+
 description_keys = [
     ('model', 'description'),
     ('ModelDescription',),
@@ -64,6 +73,14 @@ def get_base_model(metadata):
                 logging.debug(value)
                 if base_model := normalize_map.get(value):
                     return base_model
+    return 'unkn'
+
+
+def get_base_model_from_name(filename):
+    filename = filename.lower()
+    for key,value in model_key_map.items():
+        if key in filename:
+            return value
     return 'unkn'
 
 
@@ -88,7 +105,7 @@ def test_file(target: Path):
         if p.exists():
             result.append(reader(p))
     print(target)
-    print(get_base_model(result))
+    print('from name:', get_base_model_from_name(target.name), 'from metadata:', get_base_model(result))
     for idx,data in enumerate(result):
         logging.debug(idx, get_base_model(data))
     print(get_description(result))
