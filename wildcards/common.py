@@ -42,12 +42,12 @@ if __name__ == '__main__':
         description='Inject common utility entries into the specified YAML wildcard file'
     )
     parser.add_argument('directory', help='path to wildcards directory including Jinja template')
-    parser.add_argument('--in', help='Jinja template filename', default='mine/common.yaml.jinja')
-    parser.add_argument('--out', help='Output YAML filename', default='mine/common.yaml')
+    parser.add_argument('--input', help='Jinja template filename', default='mine/common.yaml.jinja')
+    parser.add_argument('--output', help='Output YAML filename', default='mine/common.yaml')
     args = parser.parse_args()
     env = Environment(loader=FileSystemLoader(args.directory))
-    template = env.get_template(args.in)
+    template = env.get_template(args.input)
 
     data = yaml.dump(raw_data, sort_keys=False).strip()
 
-    template.stream(common=data).dump(args.out)
+    template.stream(common=data).dump(args.output)
