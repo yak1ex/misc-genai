@@ -13,7 +13,7 @@ def read_from_safetensors(inpath):
         header_bytes = (struct.unpack('<Q', num_bytes))[0]
         header = infile.read(header_bytes).decode('utf-8')
         data = json.loads(header)
-        return data['__metadata__']
+        return data.get('__metadata__', None)
 
 
 def read_from_json(inpath):
@@ -71,7 +71,8 @@ def get_metadata_list(target: Path):
     for suffix, reader in readers.items():
         p = Path(f'{basename}.{suffix}')
         if p.exists():
-            result.append(reader(p))
+            if metadata := reader(p):
+                result.append(metadata)
     return result
 
 
