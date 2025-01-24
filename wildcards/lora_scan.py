@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import TextIO
 
 
 def read_from_safetensors(inpath):
@@ -64,7 +65,18 @@ description_keys = [
     ('description',),
 ]
 
-def get_base_model(metadata):
+
+def get_metadata_list(target: Path):
+    basename = target.with_suffix('')
+    result = []
+    for suffix, reader in readers.items():
+        p = Path(f'{basename}.{suffix}')
+        if p.exists():
+            result.append(reader(p))
+    return result
+
+
+def get_base_model(metadata: list[dict]|dict):
     if not isinstance(metadata, list):
         metadata = [metadata]
     for key in base_model_keys:
@@ -76,8 +88,8 @@ def get_base_model(metadata):
     return 'unkn'
 
 
-def get_base_model_from_name(filename):
-    filename = filename.lower()
+def get_base_model_from_name(filename: Path):
+    filename = filename.name.lower()
     for key,value in model_key_map.items():
         if key in filename:
             return value
@@ -98,20 +110,14 @@ def get_description(metadata) -> str:
 
 
 def test_file(target: Path):
-    basename = target.with_suffix('')
-    result = []
-    for suffix, reader in readers.items():
-        p = Path(f'{basename}.{suffix}')
-        if p.exists():
-            result.append(reader(p))
+    metadata_list = get_metadata_list(target)
     print(target)
-    print('from name:', get_base_model_from_name(target.name), 'from metadata:', get_base_model(result))
-    for idx,data in enumerate(result):
+    print('from name:', get_base_model_from_name(target.name), 'from metadata:', get_base_model(metadata_list))
+    for idx,data in enumerate(metadata_list):
         logging.debug(idx, get_base_model(data))
-    print(get_description(result))
-    for idx,data in enumerate(result):
+    print(get_description(metadata_list))
+    for idx,data in enumerate(metadata_list):
         logging.debug(idx, get_description(data))
-
 
 
 def test(top: Path):
@@ -123,6 +129,35 @@ def test(top: Path):
         test_file(top)
 
 
+override_list_header = """\
+{% macro override_basemodel(modelname) -%}
+{# ordering from low priority to high priority -#}
+{%- set result = 'unkn' -%}"""
+
+override_list_footer = """\
+{{ result }}
+{%- endmacro %}"""
+
+def override_list_file(target: Path, output_stream: TextIO):
+    metadata_list = get_metadata_list(target)
+    actual_base_model = get_base_model(metadata_list)
+    inferred_base_model = get_base_model_from_name(target)
+    if actual_base_model != inferred_base_model:
+        print(f"{{% set result = '{actual_base_model}' if modelname == '{target.name}' else result -%}}", output_stream)
+
+
+def override_list(top: Path, output: Path):
+    with open(output, 'w') as output_stream:
+        print(override_list_header, file=output_stream)
+        if top.is_dir():
+            for root,dirs,files in os.walk(top):
+                for file in filter(lambda x: x.endswith('.safetensors'), files):
+                    override_list_file(Path(root, file), output_stream)
+        else:
+            override_list_file(top, output_stream)
+        print(override_list_footer, file=output_stream)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         prog='lora_scan.py',
@@ -130,6 +165,8 @@ if __name__ == '__main__':
     )
     parser.add_argument('filename')
     parser.add_argument('--log', type=str, default='WARN')
+    parser.add_argument('--test')
+    parser.add_argument('--jinja', type=str, help='output jinja filename for basemodel overriding against inferrence')
     args = parser.parse_args()
 
     log_level = getattr(logging, args.log.upper())
@@ -137,4 +174,7 @@ if __name__ == '__main__':
         raise ValueError('Invalid log level: %s' % args.log)
     logging.basicConfig(level=log_level)
 
-    test(Path(args.filename))
+    if args.jinja:
+        override_list(Path(args.filename), Path(args.jinja))
+    else:
+        test(Path(args.filename))
