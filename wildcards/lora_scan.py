@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import TextIO
+from typing import Any, Optional, TextIO
 
 
 def read_from_safetensors(inpath):
@@ -172,7 +172,7 @@ def yaml_fragment_file(target: Path, result: dict):
 
 
 def yaml_fragment(top: Path, output: Path):
-    result = {}
+    result: dict[str, str] = {}
     if top.is_dir():
         for root, dirs, files in os.walk(top):
             for file in filter(filter_tensors, files):
@@ -188,10 +188,10 @@ def yaml_fragment(top: Path, output: Path):
 
 if __name__ == '__main__':
     def log_level(level: str) -> int:
-        level = getattr(logging, level.upper(), None)
-        if not isinstance(level, int):
+        num_level: Optional[Any] = getattr(logging, level.upper(), None)
+        if not isinstance(num_level, int):
             raise ValueError(f'Invalid log level: {level}')
-        return level
+        return num_level
 
     parser = argparse.ArgumentParser(
         prog='lora_scan.py',
