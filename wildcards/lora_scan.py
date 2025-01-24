@@ -3,7 +3,6 @@ import struct
 import json
 import logging
 import os
-import sys
 from pathlib import Path
 from typing import TextIO
 
@@ -27,9 +26,9 @@ def read_from_json(inpath):
 # r'(\d+(?:\.\d+))\s*(?:(?:-|~|to)\s*(\d+(?:\.\d+)))\s*weights?'
 
 readers = {
-    'civitai.info': read_from_json, # (model,description)
-    'cm-info.json': read_from_json, # ModelDescription
-    'json': read_from_json, # description
+    'civitai.info': read_from_json,  # (model,description)
+    'cm-info.json': read_from_json,  # ModelDescription
+    'json': read_from_json,  # description
     'safetensors': read_from_safetensors,
 }
 
@@ -76,7 +75,7 @@ def get_metadata_list(target: Path):
     return result
 
 
-def get_base_model(metadata: list[dict]|dict):
+def get_base_model(metadata: list[dict] | dict):
     if not isinstance(metadata, list):
         metadata = [metadata]
     for key in base_model_keys:
@@ -90,7 +89,7 @@ def get_base_model(metadata: list[dict]|dict):
 
 def get_base_model_from_name(target: Path):
     filename = target.name.lower()
-    for key,value in model_key_map.items():
+    for key, value in model_key_map.items():
         if key in filename:
             return value
     return 'unkn'
@@ -112,17 +111,18 @@ def get_description(metadata) -> str:
 def test_file(target: Path):
     metadata_list = get_metadata_list(target)
     print(target)
-    print('from name:', get_base_model_from_name(target), 'from metadata:', get_base_model(metadata_list))
-    for idx,data in enumerate(metadata_list):
+    print('from name:', get_base_model_from_name(target),
+          'from metadata:', get_base_model(metadata_list))
+    for idx, data in enumerate(metadata_list):
         logging.debug(f'[{idx}] -> basemodel = {get_base_model(data)}')
     print(get_description(metadata_list))
-    for idx,data in enumerate(metadata_list):
+    for idx, data in enumerate(metadata_list):
         logging.debug(f'[{idx}] -> description = {get_description(data)}')
 
 
 def test(top: Path):
     if top.is_dir():
-        for root,dirs,files in os.walk(top):
+        for root, dirs, files in os.walk(top):
             for file in filter(lambda x: x.endswith('.safetensors'), files):
                 test_file(Path(root, file))
     else:
@@ -138,20 +138,27 @@ override_list_footer = """\
 {{ result }}
 {%- endmacro %}"""
 
+
 def override_list_file(target: Path, output_stream: TextIO):
     metadata_list = get_metadata_list(target)
     actual_base_model = get_base_model(metadata_list)
     inferred_base_model = get_base_model_from_name(target)
     if actual_base_model != inferred_base_model:
-        print(f"{{% set result = '{actual_base_model}' if modelname == '{target.name}' else result -%}}", file=output_stream)
+        print(f"{{% set result = '{actual_base_model}' "
+              f"if modelname == '{target.name}' else result -%}}",
+              file=output_stream)
+
+
+def filter_tensors(arg: str):
+    return arg.endswith('.safetensors')
 
 
 def override_list(top: Path, output: Path):
     with open(output, 'w') as output_stream:
         print(override_list_header, file=output_stream)
         if top.is_dir():
-            for root,dirs,files in os.walk(top):
-                for file in filter(lambda x: x.endswith('.safetensors'), files):
+            for root, dirs, files in os.walk(top):
+                for file in filter(filter_tensors, files):
                     override_list_file(Path(root, file), output_stream)
         else:
             override_list_file(top, output_stream)
@@ -167,16 +174,16 @@ def yaml_fragment_file(target: Path, result: dict):
 def yaml_fragment(top: Path, output: Path):
     result = {}
     if top.is_dir():
-        for root,dirs,files in os.walk(top):
-            for file in filter(lambda x: x.endswith('.safetensors'), files):
+        for root, dirs, files in os.walk(top):
+            for file in filter(filter_tensors, files):
                 yaml_fragment_file(Path(root, file), result)
     else:
         yaml_fragment_file(top, result)
     with open(output, 'w') as output_stream:
-        for basemodel,loras in result.items():
+        for basemodel, loras in result.items():
             print(f'{basemodel}:', file=output_stream)
             for lora in loras:
-                print(f'  - <lora:{lora}:1>', file=output_stream) # TODO: title, weight
+                print(f'  - <lora:{lora}:1>', file=output_stream)  # TODO: title, weight
 
 
 if __name__ == '__main__':
