@@ -1,0 +1,26 @@
+{% import 'mine/override_basemodel.jinja' as dp_ %}
+
+{% macro hyphenated_concat(list) -%}
+{%- for item in list -%}
+  {%- if not loop.first -%}
+    -
+  {%- endif -%}
+  {{ item }}
+{%- endfor -%}
+{%- endmacro %}
+
+{% macro detect_basemodel(modelname) -%}
+{% set result = dp_.override_basemodel(modelname) -%}
+{% if result == "unkn" -%}
+{% if 'ilxl' in modelname.lower() or 'ill' in modelname.lower() -%}
+{% set result = 'ilxl' -%}
+{% elif 'pdxl' in modelname.lower() or 'pony' in modelname.lower() -%}
+{% set result = 'pony' -%}
+{% elif 'xl' in modelname.lower() -%}
+{% set result = 'sdxl' -%}
+{% else -%}
+{% set result = 'sd15' -%}
+{% endif -%}
+{% endif -%}
+{{ result }}
+{%- endmacro %}

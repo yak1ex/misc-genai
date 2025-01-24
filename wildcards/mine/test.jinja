@@ -1,0 +1,8 @@
+{{ name }}
+{% import 'mine/dplib.jinja' as dp -%}
+{% set t = dp.hyphenated_concat(['ABC','DEF','GHI']) -%}
+{{ t }}
+{% for model in models -%}
+{% set r = dp.detect_basemodel(model) -%}
+{{model}}: {{ r }}
+{% endfor -%}

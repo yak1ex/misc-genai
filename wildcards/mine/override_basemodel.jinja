@@ -1,0 +1,9 @@
+{% macro override_basemodel(modelname) -%}
+{# ordering from low priority to high priority -#}
+{%- set result = 'unkn' -%}
+{#{% set result = 'sd15' if modelname == '...' else result -%}-#}
+{#{% set result = 'sdxl' if modelname == '...' else result -%}-#}
+{#{% set result = 'pony' if modelname == '...' else result -%}-#}
+{#{% set result = 'ilxl' if modelname == '...' else result -%}-#}
+{{ result }}
+{%- endmacro %}
