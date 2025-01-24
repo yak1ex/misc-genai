@@ -2,3 +2,4 @@ piexif
 pillow
 pillow-avif-plugin
 requests
+dynamicprompts[yaml]
