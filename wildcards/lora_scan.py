@@ -88,8 +88,8 @@ def get_base_model(metadata: list[dict]|dict):
     return 'unkn'
 
 
-def get_base_model_from_name(filename: Path):
-    filename = filename.name.lower()
+def get_base_model_from_name(target: Path):
+    filename = target.name.lower()
     for key,value in model_key_map.items():
         if key in filename:
             return value
@@ -112,7 +112,7 @@ def get_description(metadata) -> str:
 def test_file(target: Path):
     metadata_list = get_metadata_list(target)
     print(target)
-    print('from name:', get_base_model_from_name(target.name), 'from metadata:', get_base_model(metadata_list))
+    print('from name:', get_base_model_from_name(target), 'from metadata:', get_base_model(metadata_list))
     for idx,data in enumerate(metadata_list):
         logging.debug(idx, get_base_model(data))
     print(get_description(metadata_list))
@@ -143,7 +143,7 @@ def override_list_file(target: Path, output_stream: TextIO):
     actual_base_model = get_base_model(metadata_list)
     inferred_base_model = get_base_model_from_name(target)
     if actual_base_model != inferred_base_model:
-        print(f"{{% set result = '{actual_base_model}' if modelname == '{target.name}' else result -%}}", output_stream)
+        print(f"{{% set result = '{actual_base_model}' if modelname == '{target.name}' else result -%}}", file=output_stream)
 
 
 def override_list(top: Path, output: Path):
@@ -158,15 +158,37 @@ def override_list(top: Path, output: Path):
         print(override_list_footer, file=output_stream)
 
 
+def yaml_fragment_file(target: Path, result: dict):
+    metadata_list = get_metadata_list(target)
+    actual_base_model = get_base_model(metadata_list)
+    result.setdefault(actual_base_model, []).append(target.stem)
+
+
+def yaml_fragment(top: Path, output: Path):
+    result = {}
+    if top.is_dir():
+        for root,dirs,files in os.walk(top):
+            for file in filter(lambda x: x.endswith('.safetensors'), files):
+                yaml_fragment_file(Path(root, file), result)
+    else:
+        yaml_fragment_file(top, result)
+    with open(output, 'w') as output_stream:
+        for basemodel,loras in result.items():
+            print(f'{basemodel}:', file=output_stream)
+            for lora in loras:
+                print(f'  - <lora:{lora}:1>', file=output_stream) # TODO: title, weight
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         prog='lora_scan.py',
         description='Scan LORA files and make support files for wildcards'
     )
-    parser.add_argument('filename')
+    parser.add_argument('filename', type=Path)
     parser.add_argument('--log', type=str, default='WARN')
-    parser.add_argument('--test')
-    parser.add_argument('--jinja', type=str, help='output jinja filename for basemodel overriding against inferrence')
+    parser.add_argument('--test', action='store_true')
+    parser.add_argument('--jinja', type=Path, help='output jinja filename for basemodel overriding against inferrence')
+    parser.add_argument('--yaml', type=Path, help='output YAML filename for wildcards fragment')
     args = parser.parse_args()
 
     log_level = getattr(logging, args.log.upper())
@@ -175,6 +197,8 @@ if __name__ == '__main__':
     logging.basicConfig(level=log_level)
 
     if args.jinja:
-        override_list(Path(args.filename), Path(args.jinja))
-    else:
-        test(Path(args.filename))
+        override_list(args.filename, args.jinja)
+    if args.yaml:
+        yaml_fragment(args.filename, args.yaml)
+    if args.test or (not args.jinja and not args.yaml):
+        test(args.filename)
