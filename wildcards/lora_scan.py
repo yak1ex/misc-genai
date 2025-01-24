@@ -2,6 +2,7 @@ import argparse
 import struct
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -79,6 +80,32 @@ def get_description(metadata) -> str:
     return ''
 
 
+def test_file(target: Path):
+    basename = target.with_suffix('')
+    result = []
+    for suffix, reader in readers.items():
+        p = Path(f'{basename}.{suffix}')
+        if p.exists():
+            result.append(reader(p))
+    print(target)
+    print(get_base_model(result))
+    for idx,data in enumerate(result):
+        logging.debug(idx, get_base_model(data))
+    print(get_description(result))
+    for idx,data in enumerate(result):
+        logging.debug(idx, get_description(data))
+
+
+
+def test(top: Path):
+    if top.is_dir():
+        for root,dirs,files in os.walk(top):
+            for file in filter(lambda x: x.endswith('.safetensors'), files):
+                test_file(Path(root, file))
+    else:
+        test_file(top)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         prog='lora_scan.py',
@@ -92,16 +119,5 @@ if __name__ == '__main__':
     if not isinstance(log_level, int):
         raise ValueError('Invalid log level: %s' % args.log)
     logging.basicConfig(level=log_level)
-    target = Path(args.filename)
-    basename = target.with_suffix('')
-    result = []
-    for suffix, reader in readers.items():
-        p = Path(f'{basename}.{suffix}')
-        if p.exists():
-            result.append(reader(p))
-    print(get_base_model(result))
-    for idx,data in enumerate(result):
-        logging.debug(idx, get_base_model(data))
-    print(get_description(result))
-    for idx,data in enumerate(result):
-        logging.debug(idx, get_description(data))
+
+    test(Path(args.filename))
