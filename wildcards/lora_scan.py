@@ -82,7 +82,7 @@ def get_base_model(metadata: list[dict]|dict):
     for key in base_model_keys:
         for data in metadata:
             if value := data.get(key):
-                logging.debug(value)
+                logging.debug(f'key [{key}] -> value [{value}]')
                 if base_model := normalize_map.get(value):
                     return base_model
     return 'unkn'
@@ -114,10 +114,10 @@ def test_file(target: Path):
     print(target)
     print('from name:', get_base_model_from_name(target), 'from metadata:', get_base_model(metadata_list))
     for idx,data in enumerate(metadata_list):
-        logging.debug(idx, get_base_model(data))
+        logging.debug(f'[{idx}] -> basemodel = {get_base_model(data)}')
     print(get_description(metadata_list))
     for idx,data in enumerate(metadata_list):
-        logging.debug(idx, get_description(data))
+        logging.debug(f'[{idx}] -> description = {get_description(data)}')
 
 
 def test(top: Path):
@@ -180,21 +180,24 @@ def yaml_fragment(top: Path, output: Path):
 
 
 if __name__ == '__main__':
+    def log_level(level: str) -> int:
+        level = getattr(logging, level.upper(), None)
+        if not isinstance(level, int):
+            raise ValueError(f'Invalid log level: {level}')
+        return level
+
     parser = argparse.ArgumentParser(
         prog='lora_scan.py',
         description='Scan LORA files and make support files for wildcards'
     )
     parser.add_argument('filename', type=Path)
-    parser.add_argument('--log', type=str, default='WARN')
+    parser.add_argument('--log', type=log_level, default='WARN')
     parser.add_argument('--test', action='store_true')
     parser.add_argument('--jinja', type=Path, help='output jinja filename for basemodel overriding against inferrence')
     parser.add_argument('--yaml', type=Path, help='output YAML filename for wildcards fragment')
     args = parser.parse_args()
 
-    log_level = getattr(logging, args.log.upper())
-    if not isinstance(log_level, int):
-        raise ValueError('Invalid log level: %s' % args.log)
-    logging.basicConfig(level=log_level)
+    logging.basicConfig(level=args.log)
 
     if args.jinja:
         override_list(args.filename, args.jinja)
