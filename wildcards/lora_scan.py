@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional, TextIO
 
 
-def read_from_safetensors(inpath):
+def read_from_safetensors(inpath: Path) -> Optional[dict]:
     with inpath.open('rb') as infile:
         num_bytes = infile.read(8)
         header_bytes = (struct.unpack('<Q', num_bytes))[0]
@@ -16,7 +16,7 @@ def read_from_safetensors(inpath):
         return data.get('__metadata__', None)
 
 
-def read_from_json(inpath):
+def read_from_json(inpath: Path) -> dict:
     with inpath.open() as infile:
         data = json.loads(infile.read())
         return data
