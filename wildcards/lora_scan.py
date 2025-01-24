@@ -50,10 +50,13 @@ normalize_map = {
 }
 
 model_key_map = {
-    'ilxl': 'ilxl',
-    'ill': 'ilxl',
     'pdxl': 'pony',
     'pony': 'pony',
+    'ilxl': 'ilxl',
+    'pxl': 'pony',
+    'ill': 'ilxl',
+    'ixl': 'ilxl',
+    'il': 'ilxl',
     'xl': 'sdxl',
     '': 'sd15',
 }
