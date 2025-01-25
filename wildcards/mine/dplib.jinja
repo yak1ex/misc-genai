@@ -10,17 +10,24 @@
 {%- endmacro %}
 
 {% macro detect_basemodel(modelname) -%}
-{% set result = dp_.override_basemodel(modelname) -%}
-{% if result == "unkn" -%}
-{% if 'ilxl' in modelname.lower() or 'ill' in modelname.lower() -%}
-{% set result = 'ilxl' -%}
-{% elif 'pdxl' in modelname.lower() or 'pony' in modelname.lower() -%}
-{% set result = 'pony' -%}
-{% elif 'xl' in modelname.lower() -%}
-{% set result = 'sdxl' -%}
-{% else -%}
-{% set result = 'sd15' -%}
+{% set ns = namespace(result = dp_.override_basemodel(modelname)) -%}
+{% if ns.result == "unkn" -%}
+  {%- set model_key_map = {
+    'pdxl': 'pony',
+    'pony': 'pony',
+    'ilxl': 'ilxl',
+    'pxl': 'pony',
+    'ill': 'ilxl',
+    'ixl': 'ilxl',
+    'il': 'ilxl',
+    'xl': 'sdxl',
+    '': 'sd15',
+  } -%}
+  {%- for key, value in model_key_map.items() | reverse -%}
+    {%- if key in modelname.lower() -%}
+      {%- set ns.result = value -%}
+    {%- endif -%}
+  {%- endfor -%}
 {% endif -%}
-{% endif -%}
-{{ result }}
+{{ ns.result }}
 {%- endmacro %}
