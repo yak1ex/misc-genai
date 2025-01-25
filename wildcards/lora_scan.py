@@ -68,6 +68,12 @@ description_keys = [
 ]
 
 
+title_keys = [
+    ('model', 'name'),
+    ('ModelName',),
+]
+
+
 def get_metadata_list(target: Path):
     basename = target.with_suffix('')
     result = []
@@ -100,13 +106,9 @@ def get_base_model_from_name(target: Path):
 
 
 def get_recursive(target: dict, keys: Iterable):
-    for keys in keys:
-        cur_data = target
-        for key in keys:
-            cur_data = cur_data.get(key, {})
-        if cur_data != {}:
-            return cur_data
-    return ''
+    for key in keys:
+        target = target.get(key, {})
+    return target or ''  # not found => {} => False
 
 
 def get_description(metadata) -> str:
@@ -119,14 +121,25 @@ def get_description(metadata) -> str:
     return result
 
 
+def get_title(metadata) -> str:
+    if not isinstance(metadata, list):
+        metadata = [metadata]
+    for keys in title_keys:
+        for data in metadata:
+            if result := get_recursive(data, keys):
+                return result
+    return result
+
+
 def test_file(target: Path):
     metadata_list = get_metadata_list(target)
-    print(target)
-    print('from name:', get_base_model_from_name(target),
+    print('[filename]', target)
+    print('[title]', get_title(metadata_list))
+    print('[basemodel]', 'from name:', get_base_model_from_name(target),
           'from metadata:', get_base_model(metadata_list))
     for idx, data in enumerate(metadata_list):
         logging.debug(f'[{idx}] -> basemodel = {get_base_model(data)}')
-    print(get_description(metadata_list))
+    print('[description]', get_description(metadata_list))
     for idx, data in enumerate(metadata_list):
         logging.debug(f'[{idx}] -> description = {get_description(data)}')
 
@@ -181,11 +194,11 @@ def override_list(top: Path, output: Path):
 def yaml_fragment_file(target: Path, result: dict):
     metadata_list = get_metadata_list(target)
     actual_base_model = get_base_model(metadata_list)
-    result.setdefault(actual_base_model, []).append(target.stem)
+    result.setdefault(actual_base_model, []).append(target)
 
 
 def yaml_fragment(top: Path, output: Path):
-    result: dict[str, str] = {}
+    result: dict[str, list[Path]] = {}
     if top.is_dir():
         for root, dirs, files in os.walk(top):
             for file in filter(filter_tensors, files):
@@ -196,7 +209,9 @@ def yaml_fragment(top: Path, output: Path):
         for basemodel, loras in result.items():
             print(f'{basemodel}:', file=output_stream)
             for lora in loras:
-                print(f'  - <lora:{lora}:1>', file=output_stream)  # TODO: title, weight
+                metadata_list = get_metadata_list(lora)
+                title = get_title(metadata_list)
+                print(f'  - <lora:{lora.stem}:1> # {title}', file=output_stream)  # TODO: weight
 
 
 if __name__ == '__main__':
