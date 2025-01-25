@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional, TextIO
+from typing import Any, Iterable, Optional, TextIO
 
 
 def read_from_safetensors(inpath: Path) -> Optional[dict]:
@@ -99,17 +99,24 @@ def get_base_model_from_name(target: Path):
     return 'unkn'
 
 
+def get_recursive(target: dict, keys: Iterable):
+    for keys in keys:
+        cur_data = target
+        for key in keys:
+            cur_data = cur_data.get(key, {})
+        if cur_data != {}:
+            return cur_data
+    return ''
+
+
 def get_description(metadata) -> str:
     if not isinstance(metadata, list):
         metadata = [metadata]
     for keys in description_keys:
         for data in metadata:
-            cur_data = data
-            for key in keys:
-                cur_data = cur_data.get(key, {})
-            if cur_data != {}:
-                return cur_data
-    return ''
+            if result := get_recursive(data, keys):
+                return result
+    return result
 
 
 def test_file(target: Path):
