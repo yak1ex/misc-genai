@@ -80,6 +80,16 @@ title_keys = [
     ('ModelName',),
 ]
 
+keyword_keys = [
+    ('activation text',),
+    ('trainedWords',),  # list
+    ('TrainedWords',),  # list
+]
+
+creator_keys = [
+    ('creator', 'username'),
+]
+
 
 def get_metadata_list(target: Path, hints: Hints):
     result = [hints.get(target.name, {})]
