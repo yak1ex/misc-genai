@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any, Iterable, Optional, TextIO
 
 
+Hints = dict[str, dict]
+
+
 def read_from_safetensors(inpath: Path) -> Optional[dict]:
     with inpath.open('rb') as infile:
         num_bytes = infile.read(8)
@@ -47,6 +50,10 @@ normalize_map = {
     'Pony': 'pony',
     'SDXL 1.0': 'sdxl',
     'SDXL': 'sdxl',
+    'sd15': 'sd15',
+    'sdxl': 'sdxl',
+    'ilxl': 'ilxl',
+    'pony': 'pony',
 }
 
 model_key_map = {
@@ -74,9 +81,9 @@ title_keys = [
 ]
 
 
-def get_metadata_list(target: Path):
+def get_metadata_list(target: Path, hints: Hints):
+    result = [hints.get(target.name, {})]
     basename = target.with_suffix('')
-    result = []
     for suffix, reader in readers.items():
         p = Path(f'{basename}.{suffix}')
         if p.exists():
@@ -131,8 +138,8 @@ def get_title(metadata) -> str:
     return ''
 
 
-def test_file(target: Path):
-    metadata_list = get_metadata_list(target)
+def test_file(target: Path, hints: Hints):
+    metadata_list = get_metadata_list(target, hints)
     print('[filename]', target)
     print('[title]', get_title(metadata_list))
     print('[basemodel]', 'from name:', get_base_model_from_name(target),
@@ -144,14 +151,14 @@ def test_file(target: Path):
         logging.debug(f'[{idx}] -> description = {get_description(data)}')
 
 
-def test(targets: list[Path]):
+def test(targets: list[Path], hints: Hints):
     for target in targets:
         if target.is_dir():
             for root, dirs, files in os.walk(target):
                 for file in filter(lambda x: x.endswith('.safetensors'), files):
-                    test_file(Path(root, file))
+                    test_file(Path(root, file), hints)
         else:
-            test_file(target)
+            test_file(target, hints)
 
 
 override_list_header = """\
@@ -164,8 +171,8 @@ override_list_footer = """\
 {%- endmacro %}"""
 
 
-def override_list_file(target: Path, output_stream: TextIO):
-    metadata_list = get_metadata_list(target)
+def override_list_file(target: Path, output_stream: TextIO, hints: Hints):
+    metadata_list = get_metadata_list(target, hints)
     actual_base_model = get_base_model(metadata_list)
     if actual_base_model == 'unkn':
         logging.warning(f"Can't detect base model of {target.name}")
@@ -180,39 +187,39 @@ def filter_tensors(arg: str):
     return arg.endswith('.safetensors')
 
 
-def override_list(targets: list[Path], output: Path):
+def override_list(targets: list[Path], output: Path, hints: Hints):
     with open(output, 'w') as output_stream:
         print(override_list_header, file=output_stream)
         for target in targets:
             if target.is_dir():
                 for root, dirs, files in os.walk(target):
                     for file in filter(filter_tensors, files):
-                        override_list_file(Path(root, file), output_stream)
+                        override_list_file(Path(root, file), output_stream, hints)
             else:
-                override_list_file(target, output_stream)
+                override_list_file(target, output_stream, hints)
         print(override_list_footer, file=output_stream)
 
 
-def yaml_fragment_file(target: Path, result: dict):
-    metadata_list = get_metadata_list(target)
+def yaml_fragment_file(target: Path, result: dict, hints: Hints):
+    metadata_list = get_metadata_list(target, hints)
     actual_base_model = get_base_model(metadata_list)
     result.setdefault(actual_base_model, []).append(target)
 
 
-def yaml_fragment(targets: list[Path], output: Path):
+def yaml_fragment(targets: list[Path], output: Path, hints: Hints):
     result: dict[str, list[Path]] = {}
     for target in targets:
         if target.is_dir():
             for root, dirs, files in os.walk(target):
                 for file in filter(filter_tensors, files):
-                    yaml_fragment_file(Path(root, file), result)
+                    yaml_fragment_file(Path(root, file), result, hints)
         else:
-            yaml_fragment_file(target, result)
+            yaml_fragment_file(target, result, hints)
     with open(output, 'w') as output_stream:
         for basemodel, loras in result.items():
             print(f'{basemodel}:', file=output_stream)
             for lora in loras:
-                metadata_list = get_metadata_list(lora)
+                metadata_list = get_metadata_list(lora, hints)
                 title = get_title(metadata_list)
                 print(f'  - <lora:{lora.stem}:1> # {title}', file=output_stream)  # TODO: weight
 
@@ -233,13 +240,18 @@ if __name__ == '__main__':
     parser.add_argument('--test', action='store_true')
     parser.add_argument('--jinja', type=Path, help='output jinja filename for basemodel overriding against inferrence')
     parser.add_argument('--yaml', type=Path, help='output YAML filename for wildcards fragment')
+    parser.add_argument('--hint', type=Path, help='JSON filename for metadata override')
     args = parser.parse_args()
 
     logging.basicConfig(level=args.log)
+    hints = {}
+    if args.hint:
+        with open(args.hint) as hint_file:
+            hints = json.loads(hint_file.read())
 
     if args.jinja:
-        override_list(args.target, args.jinja)
+        override_list(args.target, args.jinja, hints)
     if args.yaml:
-        yaml_fragment(args.target, args.yaml)
+        yaml_fragment(args.target, args.yaml, hints)
     if args.test or (not args.jinja and not args.yaml):
-        test(args.target)
+        test(args.target, hints)
