@@ -3,8 +3,9 @@ import struct
 import json
 import logging
 import os
+import re
 from pathlib import Path
-from typing import Any, Iterable, Optional, TextIO
+from typing import Any, Iterable, Optional, TextIO, Tuple
 
 
 Hints = dict[str, dict]
@@ -24,9 +25,6 @@ def read_from_json(inpath: Path) -> dict:
         data = json.loads(infile.read())
         return data
 
-
-# r'weights?\s*(around|of|from|)\s*(\d+(?:\.\d+)?)(?:(?:-|~|to)\s*(\d+(?:\.\d+)?))'
-# r'(\d+(?:\.\d+))\s*(?:(?:-|~|to)\s*(\d+(?:\.\d+)))\s*weights?'
 
 readers = {
     'civitai.info': read_from_json,  # (model,description)
@@ -74,6 +72,10 @@ description_keys = [
     ('description',),
 ]
 
+weight_regexps = [
+    r'(?:weight|weight value|apply|strength)s?\s*[:：]?\s*(?:around|of|from|is|)\s*(\d+(?:\.\d+)?)(?:(?:-|~|to)\s*(\d+(?:\.\d+)?)?)?',
+    r'(\d+(?:\.\d+))\s*(?:(?:-|~|to)\s*(\d+(?:\.\d+)))\s*weights?'
+]
 
 title_keys = [
     ('model', 'name'),
@@ -138,6 +140,24 @@ def get_description(metadata) -> str:
     return ''
 
 
+def calc_weight(left: str, right: str) -> float:
+    left_value = float(left)
+    right_value = float(right)
+    if left_value < 1 and '.' not in right:
+        right_value = float(f'0.{right}')
+    return (left_value + right_value) / 2
+
+
+def get_weight_from_description(description: str) -> Tuple[float, str]:
+    for regexp in weight_regexps:
+        if match := re.search(regexp, description, re.IGNORECASE):
+            if match.group(2):
+                return calc_weight(match.group(1), match.group(2)), match.group(0)
+            else:
+                return float(match.group(1)), match.group(0)
+    return 1, 'N/A'
+
+
 def get_title(metadata) -> str:
     if not isinstance(metadata, list):
         metadata = [metadata]
@@ -152,6 +172,7 @@ def test_file(target: Path, hints: Hints):
     metadata_list = get_metadata_list(target, hints)
     print('[filename]', target)
     print('[title]', get_title(metadata_list))
+    print('[weight]', get_weight_from_description(get_description(metadata_list)))
     print('[basemodel]', 'from name:', get_base_model_from_name(target),
           'from metadata:', get_base_model(metadata_list))
     for idx, data in enumerate(metadata_list):
