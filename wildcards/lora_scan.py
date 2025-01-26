@@ -118,7 +118,7 @@ def get_description(metadata) -> str:
         for data in metadata:
             if result := get_recursive(data, keys):
                 return result
-    return result
+    return ''
 
 
 def get_title(metadata) -> str:
@@ -128,7 +128,7 @@ def get_title(metadata) -> str:
         for data in metadata:
             if result := get_recursive(data, keys):
                 return result
-    return result
+    return ''
 
 
 def test_file(target: Path):
