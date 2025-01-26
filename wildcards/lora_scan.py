@@ -144,13 +144,14 @@ def test_file(target: Path):
         logging.debug(f'[{idx}] -> description = {get_description(data)}')
 
 
-def test(top: Path):
-    if top.is_dir():
-        for root, dirs, files in os.walk(top):
-            for file in filter(lambda x: x.endswith('.safetensors'), files):
-                test_file(Path(root, file))
-    else:
-        test_file(top)
+def test(targets: list[Path]):
+    for target in targets:
+        if target.is_dir():
+            for root, dirs, files in os.walk(target):
+                for file in filter(lambda x: x.endswith('.safetensors'), files):
+                    test_file(Path(root, file))
+        else:
+            test_file(target)
 
 
 override_list_header = """\
@@ -179,15 +180,16 @@ def filter_tensors(arg: str):
     return arg.endswith('.safetensors')
 
 
-def override_list(top: Path, output: Path):
+def override_list(targets: list[Path], output: Path):
     with open(output, 'w') as output_stream:
         print(override_list_header, file=output_stream)
-        if top.is_dir():
-            for root, dirs, files in os.walk(top):
-                for file in filter(filter_tensors, files):
-                    override_list_file(Path(root, file), output_stream)
-        else:
-            override_list_file(top, output_stream)
+        for target in targets:
+            if target.is_dir():
+                for root, dirs, files in os.walk(target):
+                    for file in filter(filter_tensors, files):
+                        override_list_file(Path(root, file), output_stream)
+            else:
+                override_list_file(target, output_stream)
         print(override_list_footer, file=output_stream)
 
 
@@ -197,14 +199,15 @@ def yaml_fragment_file(target: Path, result: dict):
     result.setdefault(actual_base_model, []).append(target)
 
 
-def yaml_fragment(top: Path, output: Path):
+def yaml_fragment(targets: list[Path], output: Path):
     result: dict[str, list[Path]] = {}
-    if top.is_dir():
-        for root, dirs, files in os.walk(top):
-            for file in filter(filter_tensors, files):
-                yaml_fragment_file(Path(root, file), result)
-    else:
-        yaml_fragment_file(top, result)
+    for target in targets:
+        if target.is_dir():
+            for root, dirs, files in os.walk(target):
+                for file in filter(filter_tensors, files):
+                    yaml_fragment_file(Path(root, file), result)
+        else:
+            yaml_fragment_file(target, result)
     with open(output, 'w') as output_stream:
         for basemodel, loras in result.items():
             print(f'{basemodel}:', file=output_stream)
@@ -225,7 +228,7 @@ if __name__ == '__main__':
         prog='lora_scan.py',
         description='Scan LORA files and make support files for wildcards'
     )
-    parser.add_argument('filename', type=Path)
+    parser.add_argument('target', type=Path, help='target files or directories', nargs='+')
     parser.add_argument('--log', type=log_level, default='WARN')
     parser.add_argument('--test', action='store_true')
     parser.add_argument('--jinja', type=Path, help='output jinja filename for basemodel overriding against inferrence')
@@ -235,8 +238,8 @@ if __name__ == '__main__':
     logging.basicConfig(level=args.log)
 
     if args.jinja:
-        override_list(args.filename, args.jinja)
+        override_list(args.target, args.jinja)
     if args.yaml:
-        yaml_fragment(args.filename, args.yaml)
+        yaml_fragment(args.target, args.yaml)
     if args.test or (not args.jinja and not args.yaml):
-        test(args.filename)
+        test(args.target)
