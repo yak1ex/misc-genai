@@ -72,9 +72,14 @@ description_keys = [
     ('description',),
 ]
 
+negative_regexp = r'(?<!do not use a )'
+antecedent_regexp = r'(?:use it|(?:weight|weight value|apply|strength)s?\s*[:：]?\s*(?:around|of|from|is|is between))\s*'
+range_regexp = r'(\d+(?:\.\d+)?)\s*(?:(?:-|~|to)\s*(\d+(?:\.\d+)?)?)?'
+subsequent_regexp = r'\s*weights?'
 weight_regexps = [
-    r'(?:weight|weight value|apply|strength)s?\s*[:：]?\s*(?:around|of|from|is|)\s*(\d+(?:\.\d+)?)(?:(?:-|~|to)\s*(\d+(?:\.\d+)?)?)?',
-    r'(\d+(?:\.\d+))\s*(?:(?:-|~|to)\s*(\d+(?:\.\d+)))\s*weights?'
+    'placeholder for lora prompt',
+    f'{negative_regexp}{antecedent_regexp}{range_regexp}',
+    f'{range_regexp}{subsequent_regexp}'
 ]
 
 title_keys = [
@@ -140,21 +145,25 @@ def get_description(metadata) -> str:
     return ''
 
 
-def calc_weight(left: str, right: str) -> float:
+def calc_weight(left: str, right: Optional[str] = None) -> float:
+    if right is None:
+        right = left
     left_value = float(left)
     right_value = float(right)
-    if left_value < 1 and '.' not in right:
-        right_value = float(f'0.{right}')
-    return (left_value + right_value) / 2
+    if '.' not in right and right_value > 4 and (left_value - int(left_value)) * 10 < right_value:
+        right_value = float(f'{int(left_value)}.{right}')
+    value = (left_value + right_value) / 2
+    return round(value * 100) / 100
 
 
-def get_weight_from_description(description: str) -> Tuple[float, str]:
+def get_weight_from_description(name: str, input_description: str) -> Tuple[float, str]:
+    raw_description = re.sub(r'<--|-->', '', input_description)
+    cooked_description = re.sub(r'<.*?>', ' ', raw_description)
+    weight_regexps[0] = r'(<|&lt;)lora:' + re.escape(name) + r':(\d+(?:\.\d+)?)(>|&gt;)'
     for regexp in weight_regexps:
-        if match := re.search(regexp, description, re.IGNORECASE):
-            if match.group(2):
-                return calc_weight(match.group(1), match.group(2)), match.group(0)
-            else:
-                return float(match.group(1)), match.group(0)
+        for description in (raw_description, cooked_description):
+            if match := re.search(regexp, description, re.IGNORECASE):
+                return calc_weight(*match.group(1, 2)), match.group(0)
     return 1, 'N/A'
 
 
@@ -172,7 +181,7 @@ def test_file(target: Path, hints: Hints):
     metadata_list = get_metadata_list(target, hints)
     print('[filename]', target)
     print('[title]', get_title(metadata_list))
-    print('[weight]', get_weight_from_description(get_description(metadata_list)))
+    print('[weight]', get_weight_from_description(target.stem, get_description(metadata_list)))
     print('[basemodel]', 'from name:', get_base_model_from_name(target),
           'from metadata:', get_base_model(metadata_list))
     for idx, data in enumerate(metadata_list):
