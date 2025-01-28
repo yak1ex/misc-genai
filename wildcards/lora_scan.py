@@ -73,8 +73,8 @@ description_keys = [
 ]
 
 negative_regexp = r'(?<!do not use a )'
-antecedent_regexp = r'(?:use it|(?:weight|weight value|apply|strength)s?\s*[:：]?\s*(?:around|of|from|is|is between))\s*'
-range_regexp = r'(\d+(?:\.\d+)?)\s*(?:(?:-|~|to)\s*(\d+(?:\.\d+)?)?)?'
+antecedent_regexp = r'(?:use it|(?:weight(?: value|)|apply|strength)s?\s*[:：]?\s*(?:around|of|from|is|is between|))\s*'
+range_regexp = r'(\d+(?:\.\d+)?)(?:\s*(?:-|~|to)\s*(\d+(?:\.\d+)?)?)?'
 subsequent_regexp = r'\s*weights?'
 weight_regexps = [
     'placeholder for lora prompt',
@@ -150,6 +150,8 @@ def calc_weight(left: str, right: Optional[str] = None) -> float:
         right = left
     left_value = float(left)
     right_value = float(right)
+    if left_value == 0:  # guard
+        return 1.0
     if '.' not in right and right_value > 4 and (left_value - int(left_value)) * 10 < right_value:
         right_value = float(f'{int(left_value)}.{right}')
     value = (left_value + right_value) / 2
@@ -159,7 +161,7 @@ def calc_weight(left: str, right: Optional[str] = None) -> float:
 def get_weight_from_description(name: str, input_description: str) -> Tuple[float, str]:
     raw_description = re.sub(r'<--|-->', '', input_description)
     cooked_description = re.sub(r'<.*?>', ' ', raw_description)
-    weight_regexps[0] = r'(<|&lt;)lora:' + re.escape(name) + r':(\d+(?:\.\d+)?)(>|&gt;)'
+    weight_regexps[0] = r'(?:<|&lt;)lora:' + re.escape(name) + r':(\d+(?:\.\d+)?)(dummy)?(?:>|&gt;)'
     for regexp in weight_regexps:
         for description in (raw_description, cooked_description):
             if match := re.search(regexp, description, re.IGNORECASE):
