@@ -4,11 +4,13 @@ import json
 import logging
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any, Iterable, Optional, TextIO, Tuple
 
 
 Hints = dict[str, dict]
+Metadata = list[dict] | dict
 
 
 def read_from_safetensors(inpath: Path) -> Optional[dict]:
@@ -109,7 +111,7 @@ def get_metadata_list(target: Path, hints: Hints):
     return result
 
 
-def get_base_model(metadata: list[dict] | dict):
+def get_base_model(metadata: Metadata):
     if not isinstance(metadata, list):
         metadata = [metadata]
     for key in base_model_keys:
@@ -135,14 +137,18 @@ def get_recursive(target: dict, keys: Iterable):
     return target or ''  # not found => {} => False
 
 
-def get_description(metadata) -> str:
+def get_value(metadata: Metadata, keys_list: Iterable[Iterable]):
     if not isinstance(metadata, list):
         metadata = [metadata]
-    for keys in description_keys:
+    for keys in keys_list:
         for data in metadata:
             if result := get_recursive(data, keys):
                 return result
     return ''
+
+
+def get_description(metadata: Metadata) -> str:
+    return get_value(metadata, description_keys)
 
 
 def calc_weight(left: str, right: Optional[str] = None) -> float:
@@ -169,38 +175,67 @@ def get_weight_from_description(name: str, input_description: str) -> Tuple[floa
     return 1, 'N/A'
 
 
-def get_title(metadata) -> str:
-    if not isinstance(metadata, list):
-        metadata = [metadata]
-    for keys in title_keys:
-        for data in metadata:
-            if result := get_recursive(data, keys):
-                return result
-    return ''
+def get_title(metadata: Metadata) -> str:
+    return get_value(metadata, title_keys)
 
 
-def test_file(target: Path, hints: Hints):
+def get_keywords(metadata: Metadata) -> list[str]:
+    result: list[str] | str = get_value(metadata, keyword_keys)
+    if isinstance(result, list):
+        return result
+    elif result == '':
+        return []
+    else:
+        return result.split(',')
+
+
+def get_creator(metadata: Metadata) -> str:
+    return get_value(metadata, creator_keys)
+
+
+def summary_file(target: Path, output_stream: TextIO, hints: Hints):
     metadata_list = get_metadata_list(target, hints)
-    print('[filename]', target)
-    print('[title]', get_title(metadata_list))
-    print('[weight]', get_weight_from_description(target.stem, get_description(metadata_list)))
+    print('[filename]', target, file=output_stream)
+    print('[title]', get_title(metadata_list), file=output_stream)
+    print('[weight]', get_weight_from_description(target.stem, get_description(metadata_list)), file=output_stream)
+    print('[keywords]', ', '.join(get_keywords(metadata_list)), file=output_stream)
+    print('[creator]', get_creator(metadata_list), file=output_stream)
     print('[basemodel]', 'from name:', get_base_model_from_name(target),
-          'from metadata:', get_base_model(metadata_list))
+          'from metadata:', get_base_model(metadata_list), file=output_stream)
     for idx, data in enumerate(metadata_list):
         logging.debug(f'[{idx}] -> basemodel = {get_base_model(data)}')
-    print('[description]', get_description(metadata_list))
+    print('[description]', get_description(metadata_list), file=output_stream)
     for idx, data in enumerate(metadata_list):
         logging.debug(f'[{idx}] -> description = {get_description(data)}')
 
 
-def test(targets: list[Path], hints: Hints):
-    for target in targets:
-        if target.is_dir():
-            for root, dirs, files in os.walk(target):
-                for file in filter(lambda x: x.endswith('.safetensors'), files):
-                    test_file(Path(root, file), hints)
-        else:
-            test_file(target, hints)
+def summary(targets: list[Path], output: Optional[Path], hints: Hints):
+    if output is None:
+        output = Path('-')
+    with open(output, 'w', encoding='utf8') if output != Path('-') else sys.stdout as output_stream:
+        for target in targets:
+            if target.is_dir():
+                for root, dirs, files in os.walk(target):
+                    for file in filter(lambda x: x.endswith('.safetensors'), files):
+                        summary_file(Path(root, file), output_stream, hints)
+            else:
+                summary_file(target, output_stream, hints)
+
+
+def dump_file(target: Path, output_stream: TextIO, hints: Hints):
+    metadata_list = get_metadata_list(target, hints)
+    print(metadata_list, file=output_stream)
+
+
+def dump(targets: list[Path], output: Path, hints: Hints):
+    with open(output, 'w', encoding='utf8') if output != Path('-') else sys.stdout as output_stream:
+        for target in targets:
+            if target.is_dir():
+                for root, dirs, files in os.walk(target):
+                    for file in filter(lambda x: x.endswith('.safetensors'), files):
+                        dump_file(Path(root, file), output_stream, hints)
+            else:
+                dump_file(target, output_stream, hints)
 
 
 override_list_header = """\
@@ -281,7 +316,8 @@ if __name__ == '__main__':
     )
     parser.add_argument('target', type=Path, help='target files or directories', nargs='+')
     parser.add_argument('--log', type=log_level, default='WARN')
-    parser.add_argument('--test', action='store_true')
+    parser.add_argument('--summary', type=Path, help='output summary info, stdout is used if - is specified')
+    parser.add_argument('--dump', type=Path, help='output metadata info, stdout is used if - is specified')
     parser.add_argument('--jinja', type=Path, help='output jinja filename for basemodel overriding against inferrence')
     parser.add_argument('--yaml', type=Path, help='output YAML filename for wildcards fragment')
     parser.add_argument('--hint', type=Path, help='JSON filename for metadata override')
@@ -297,5 +333,7 @@ if __name__ == '__main__':
         override_list(args.target, args.jinja, hints)
     if args.yaml:
         yaml_fragment(args.target, args.yaml, hints)
-    if args.test or (not args.jinja and not args.yaml):
-        test(args.target, hints)
+    if args.dump:
+        dump(args.target, args.dump, hints)
+    if args.summary or (not args.jinja and not args.yaml and not args.dump):
+        summary(args.target, args.summary, hints)
