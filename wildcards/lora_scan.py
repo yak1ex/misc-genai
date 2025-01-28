@@ -84,6 +84,10 @@ weight_regexps = [
     f'{range_regexp}{subsequent_regexp}'
 ]
 
+weight_keys = [
+    ('preferred weight',),
+]
+
 title_keys = [
     ('model', 'name'),
     ('ModelName',),
@@ -151,6 +155,10 @@ def get_description(metadata: Metadata) -> str:
     return get_value(metadata, description_keys)
 
 
+def get_weight_from_metadata(metadata: Metadata) -> str:
+    return get_value(metadata, weight_keys)
+
+
 def calc_weight(left: str, right: Optional[str] = None) -> float:
     if right is None:
         right = left
@@ -175,6 +183,14 @@ def get_weight_from_description(name: str, input_description: str) -> Tuple[floa
     return 1, 'N/A'
 
 
+def get_weight(name: str, metadata: Metadata) -> Tuple[float, str]:
+    weight = get_weight_from_metadata(metadata)
+    if weight and weight != '0':
+        return float(weight), 'metadata'
+    description = get_description(metadata)
+    return get_weight_from_description(name, description)
+
+
 def get_title(metadata: Metadata) -> str:
     return get_value(metadata, title_keys)
 
@@ -197,7 +213,7 @@ def summary_file(target: Path, output_stream: TextIO, hints: Hints):
     metadata_list = get_metadata_list(target, hints)
     print('[filename]', target, file=output_stream)
     print('[title]', get_title(metadata_list), file=output_stream)
-    print('[weight]', get_weight_from_description(target.stem, get_description(metadata_list)), file=output_stream)
+    print('[weight]', get_weight(target.stem, metadata_list), file=output_stream)
     print('[keywords]', ', '.join(get_keywords(metadata_list)), file=output_stream)
     print('[creator]', get_creator(metadata_list), file=output_stream)
     print('[basemodel]', 'from name:', get_base_model_from_name(target),
@@ -298,8 +314,7 @@ def yaml_fragment(targets: list[Path], output: Path, hints: Hints):
             for lora in loras:
                 metadata_list = get_metadata_list(lora, hints)
                 title = get_title(metadata_list)
-                description = get_description(metadata_list)
-                weight, source = get_weight_from_description(lora.name, description)
+                weight, source = get_weight(lora.name, metadata_list)
                 keywords = get_keywords(metadata_list)
                 if keywords:
                     keywords.insert(0, '')
