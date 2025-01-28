@@ -21,7 +21,7 @@ def read_from_safetensors(inpath: Path) -> Optional[dict]:
 
 
 def read_from_json(inpath: Path) -> dict:
-    with inpath.open() as infile:
+    with inpath.open(encoding='utf8') as infile:
         data = json.loads(infile.read())
         return data
 
@@ -230,7 +230,7 @@ def filter_tensors(arg: str):
 
 
 def override_list(targets: list[Path], output: Path, hints: Hints):
-    with open(output, 'w') as output_stream:
+    with open(output, 'w', encoding='utf8') as output_stream:
         print(override_list_header, file=output_stream)
         for target in targets:
             if target.is_dir():
@@ -257,7 +257,7 @@ def yaml_fragment(targets: list[Path], output: Path, hints: Hints):
                     yaml_fragment_file(Path(root, file), result, hints)
         else:
             yaml_fragment_file(target, result, hints)
-    with open(output, 'w') as output_stream:
+    with open(output, 'w', encoding='utf8') as output_stream:
         for basemodel, loras in result.items():
             print(f'{basemodel}:', file=output_stream)
             for lora in loras:
@@ -288,7 +288,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=args.log)
     hints = {}
     if args.hint:
-        with open(args.hint) as hint_file:
+        with open(args.hint, encoding='utf8') as hint_file:
             hints = json.loads(hint_file.read())
 
     if args.jinja:
