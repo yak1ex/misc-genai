@@ -263,7 +263,9 @@ def yaml_fragment(targets: list[Path], output: Path, hints: Hints):
             for lora in loras:
                 metadata_list = get_metadata_list(lora, hints)
                 title = get_title(metadata_list)
-                print(f'  - <lora:{lora.stem}:1> # {title}', file=output_stream)  # TODO: weight
+                description = get_description(metadata_list)
+                weight, source = get_weight_from_description(lora.name, description)
+                print(f'  - <lora:{lora.stem}:{weight}> # {title} [[{source}]]', file=output_stream)
 
 
 if __name__ == '__main__':
