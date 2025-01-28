@@ -186,7 +186,7 @@ def get_keywords(metadata: Metadata) -> list[str]:
     elif result == '':
         return []
     else:
-        return result.split(',')
+        return list(map(lambda x: x.strip(), result.split(',')))
 
 
 def get_creator(metadata: Metadata) -> str:
@@ -300,7 +300,11 @@ def yaml_fragment(targets: list[Path], output: Path, hints: Hints):
                 title = get_title(metadata_list)
                 description = get_description(metadata_list)
                 weight, source = get_weight_from_description(lora.name, description)
-                print(f'  - <lora:{lora.stem}:{weight}> # {title} [[{source}]]', file=output_stream)
+                keywords = get_keywords(metadata_list)
+                if keywords:
+                    keywords.insert(0, '')
+                keywords_str = ', '.join(keywords)
+                print(f'  - <lora:{lora.stem}:{weight}>{keywords_str} # {title} [[{source}]]', file=output_stream)
 
 
 if __name__ == '__main__':
