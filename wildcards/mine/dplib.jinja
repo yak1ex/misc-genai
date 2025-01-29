@@ -9,7 +9,12 @@
 {%- endfor -%}
 {%- endmacro %}
 
-{% macro detect_basemodel(modelname) -%}
+{#
+  Typical Usage:
+  {% import 'mine/dplib.jinja' as dplib %}{% set basemodel = dplib.detect_basemodel(model.filename) %}
+#}
+{% macro detect_basemodel(model_filename) -%}
+{% set modelname = model_filename.split('\\')[-1] -%}
 {% set ns = namespace(result = dp_.override_basemodel(modelname)) -%}
 {% if ns.result == "unkn" -%}
   {%- set model_key_map = {
