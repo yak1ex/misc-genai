@@ -399,8 +399,8 @@ if __name__ == '__main__':
         return num_level
 
     parser = argparse.ArgumentParser(
-        prog='lora_scan.py',
-        description='Scan LORA files and make support files for wildcards'
+        prog='scan_model.py',
+        description='Scan safetensor model files and make support files for wildcards'
     )
     parser.add_argument('target', type=Path, help='target files or directories', nargs='+')
     parser.add_argument('--log', type=log_level, default='WARN')
