@@ -296,9 +296,24 @@ def override_list(targets: list[Path], output: Path, hints: Hints):
         print(override_list_footer, file=output_stream)
 
 
+pattern_main = r'(illustrious|pdxl|pony|ponyxl|sdxl|pxl|xl|is|il|p6|v?\d+(\.\d+)?[a-z]?|v\d+[a-z]+\d+)'
+pattern_at_end = r'[-_. ]' + pattern_main + r'$|\(' + pattern_main + r'\)$'
+pattern_at_mid = r'([-_.])' + pattern_main + r'\d*\1'
+
+
 def get_normalized_name(name: str):
-    # FIXME: Implement
-    return name
+    flag = True
+    while flag:
+        name, count = re.subn(pattern_at_end, '', name, flags=re.IGNORECASE)
+        flag = count > 0
+    flag = True
+    while flag:
+        name, count = re.subn(pattern_at_mid, r'\1', name, flags=re.IGNORECASE)
+        flag = count > 0
+    name = re.sub(r'^\s*-', '', name)  # hyphen at the beginning
+    name = re.sub(r'[?:,[\]{}#&*!|>]', '', name)  # special characters
+    name = re.sub(r'([-_ ])\1+', r'\1', name)  # successive characters
+    return name.strip()
 
 
 def yaml_fragment_file(target: Path, result: YamlFragment, want_variant: bool, hints: Hints):
@@ -312,7 +327,7 @@ def yaml_fragment_file(target: Path, result: YamlFragment, want_variant: bool, h
         variant_base.setdefault(actual_base_model, []).append(target)
 
 
-def yaml_fragment(targets: list[Path], output: Path, want_variant: bool, hints: Hints):
+def yaml_fragment_read(targets: list[Path], want_variant: bool, hints: Hints) -> YamlFragment:
     result: YamlFragment = ({}, {})
     for target in targets:
         if target.is_dir():
@@ -321,31 +336,59 @@ def yaml_fragment(targets: list[Path], output: Path, want_variant: bool, hints: 
                     yaml_fragment_file(Path(root, file), result, want_variant, hints)
         else:
             yaml_fragment_file(target, result, want_variant, hints)
-    with open(output, 'w', encoding='utf8') as output_stream:
-        cache: dict[Path, str] = {}
-        for basemodel, loras in result[0].items():
-            print(f'{basemodel}:', file=output_stream)
-            for lora in loras:
-                metadata_list = get_metadata_list(lora, hints)
-                title = get_title(metadata_list)
-                weight, source = get_weight(lora.name, metadata_list)
-                keywords = get_keywords(metadata_list)
-                if keywords:
-                    keywords.insert(0, '')
-                keywords_str = ', '.join(keywords)
-                cache[lora] = f'  - <lora:{lora.stem}:{weight}>{keywords_str} # {title} [[{source}]]'
-                print(cache[lora], file=output_stream)
-        # FIXME: Add leaf trim
-        print('# Basemodel Variants', file=output_stream)
-        for creator, variant_bases in result[1].items():
-            print(f'{creator}:', file=output_stream)
-            for variant_base, variants in variant_bases.items():
-                print(f'  {variant_base}:', file=output_stream)
+    return result
+
+
+def yaml_fragment_basic(data: YamlFragmentBasic, output_stream: TextIO) -> dict[Path, str]:
+    cache: dict[Path, str] = {}
+    for basemodel, loras in data.items():
+        print(f'{basemodel}:', file=output_stream)
+        for lora in loras:
+            metadata_list = get_metadata_list(lora, hints)
+            title = get_title(metadata_list)
+            weight, source = get_weight(lora.name, metadata_list)
+            keywords = get_keywords(metadata_list)
+            if keywords:
+                keywords.insert(0, '')
+            keywords_str = ', '.join(keywords)
+            cache[lora] = f'  - <lora:{lora.stem}:{weight}>{keywords_str} # {title} [[{source}]]'
+            print(cache[lora], file=output_stream)
+    return cache
+
+
+def yaml_fragment_variant(data: YamlFragmentVariant, cache: dict[Path, str], want_all: bool, output_stream: TextIO):
+    print('# Basemodel Variants', file=output_stream)
+    for creator, variant_bases in data.items():
+        for variant_base, variants in variant_bases.items():
+            if len(variants) > 1:
+                print(f'{variant_base}:', file=output_stream)
                 for basemodel, loras in variants.items():
-                    print(f'    {basemodel}:', file=output_stream)
+                    print(f'  {basemodel}:', file=output_stream)
                     for lora in loras:
                         print(f'    {cache[lora]}', file=output_stream)
+    if want_all:
+        print('# Rest Basemodel Variants', file=output_stream)
+        for creator, variant_bases in data.items():
+            show_creator = False
+            for variant_base, variants in variant_bases.items():
+                if len(variants) <= 1:
+                    if not show_creator:
+                        print(f'{creator}:', file=output_stream)
+                        show_creator = True
+                    print(f'  {variant_base}:', file=output_stream)
+                    for basemodel, loras in variants.items():
+                        print(f'    {basemodel}:', file=output_stream)
+                        for lora in loras:
+                            print(f'    {cache[lora]}', file=output_stream)
 
+
+def yaml_fragment(targets: list[Path], output: Path, want_variant: bool, want_all: bool, hints: Hints):
+    result = yaml_fragment_read(targets, want_variant, hints)
+    with open(output, 'w', encoding='utf8') as output_stream:
+        cache = yaml_fragment_basic(result[0], output_stream)
+        # if not want_variant, result[1] is blank
+        if result[1]:
+            yaml_fragment_variant(result[1], cache, want_all, output_stream)
 
 
 if __name__ == '__main__':
@@ -365,7 +408,9 @@ if __name__ == '__main__':
     parser.add_argument('--dump', type=Path, help='output metadata info, stdout is used if - is specified')
     parser.add_argument('--jinja', type=Path, help='output jinja filename for basemodel overriding against inferrence')
     parser.add_argument('--yaml', type=Path, help='output YAML filename for wildcards fragment')
-    parser.add_argument('--variant', action='store_true', help='Add basemodel variants to YAML file, --yaml required')
+    parser.add_argument('--variant', action='count', default=0,
+                        help='Add basemodel variants to YAML file, --yaml required. '
+                        'Output even one model variants if specified 2 times.')
     parser.add_argument('--hint', type=Path, help='JSON filename for metadata override')
     args = parser.parse_args()
 
@@ -383,7 +428,7 @@ if __name__ == '__main__':
     if args.jinja:
         override_list(args.target, args.jinja, hints)
     if args.yaml:
-        yaml_fragment(args.target, args.yaml, args.variant, hints)
+        yaml_fragment(args.target, args.yaml, args.variant > 0, args.variant > 1, hints)
     if args.dump:
         dump(args.target, args.dump, hints)
     if args.summary or (not args.jinja and not args.yaml and not args.dump):
