@@ -141,6 +141,8 @@ def get_base_model_from_name(target: Path):
 def get_recursive(target: dict, keys: Iterable):
     for key in keys:
         target = target.get(key, {})
+        if target == '{}':  # maybe caused by bugs in somewhere
+            target = {}
     return target or ''  # not found => {} => False
 
 
