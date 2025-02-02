@@ -319,6 +319,7 @@ def get_normalized_name(name: str):
 
 
 def yaml_fragment_file(target: Path, result: YamlFragment, want_variant: bool, hints: Hints):
+    logging.info(f'reading {target}')
     metadata_list = get_metadata_list(target, hints)
     actual_base_model = get_base_model(metadata_list)
     result[0].setdefault(actual_base_model, []).append(target)
