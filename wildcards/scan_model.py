@@ -326,13 +326,14 @@ def yaml_fragment_read_file(target: Path, result: YamlFragment, want_variant: bo
     result[0].setdefault(actual_base_model, []).append(target)
     title = get_title(metadata_list)
     weight, source = get_weight(target.name, metadata_list)
+    source = re.sub(r'[\r\n]+', '', source)  # Remove linebreaks
     keywords = get_keywords(metadata_list)
     if keywords:
         keywords.insert(0, '')
     keywords_str = ', '.join(keywords)
     result[2][target] = f'<lora:{target.stem}:{weight}>{keywords_str} # {title} [[{source}]]'
     if want_variant:
-        creator = get_creator(metadata_list)
+        creator = get_creator(metadata_list) or '__noname__'
         normalized_name = get_normalized_name(target.stem)
         variant_base = result[1].setdefault(creator, {}).setdefault(normalized_name, {})
         variant_base.setdefault(actual_base_model, []).append(target)
