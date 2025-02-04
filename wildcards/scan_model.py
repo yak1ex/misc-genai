@@ -330,7 +330,7 @@ def yaml_fragment_read_file(target: Path, result: YamlFragment, want_variant: bo
     if keywords:
         keywords.insert(0, '')
     keywords_str = ', '.join(keywords)
-    result[2][target] = f'  - <lora:{target.stem}:{weight}>{keywords_str} # {title} [[{source}]]'
+    result[2][target] = f'<lora:{target.stem}:{weight}>{keywords_str} # {title} [[{source}]]'
     if want_variant:
         creator = get_creator(metadata_list)
         normalized_name = get_normalized_name(target.stem)
@@ -350,40 +350,49 @@ def yaml_fragment_read(targets: list[Path], want_variant: bool, hints: Hints) ->
     return result
 
 
-def yaml_fragment_list(data: YamlFragmentList, lora_desc: LoraDesc, output: Path):
+def yaml_fragment_list(data: YamlFragmentList, lora_desc: LoraDesc, output: Path, root: str):
+    pad = '' if root is None else '  '
     with open(output, 'w', encoding='utf8') as output_stream:
+        if root:
+            print(f'{root}:', file=output_stream)
         for basemodel, loras in data.items():
-            print(f'{basemodel}:', file=output_stream)
+            print(f'{pad}{basemodel}:', file=output_stream)
             for lora in loras:
-                print(lora_desc[lora], file=output_stream)
+                print(f'{pad}  - {lora_desc[lora]}', file=output_stream)
 
 
-def yaml_fragment_variant(data: YamlFragmentVariant, lora_desc: LoraDesc, output: Path):
+def yaml_fragment_variant(data: YamlFragmentVariant, lora_desc: LoraDesc, output: Path, root: str):
+    pad = '' if root is None else '  '
     with open(output, 'w', encoding='utf8') as output_stream:
+        if root:
+            print(f'{root}:', file=output_stream)
         for creator, variant_bases in data.items():
             for variant_base, variants in variant_bases.items():
                 if len(variants) > 1:
-                    print(f'{variant_base}:', file=output_stream)
+                    print(f'{pad}{variant_base}:', file=output_stream)
                     for basemodel, loras in variants.items():
-                        print(f'  {basemodel}:', file=output_stream)
+                        print(f'{pad}  {basemodel}:', file=output_stream)
                         for lora in loras:
-                            print(f'    {lora_desc[lora]}', file=output_stream)
+                            print(f'{pad}    - {lora_desc[lora]}', file=output_stream)
 
 
-def yaml_fragment_singular(data: YamlFragmentVariant, lora_desc: LoraDesc, output: Path):
+def yaml_fragment_singular(data: YamlFragmentVariant, lora_desc: LoraDesc, output: Path, root: str):
+    pad = '' if root is None else '  '
     with open(output, 'w', encoding='utf8') as output_stream:
+        if root:
+            print(f'{root}:', file=output_stream)
         for creator, variant_bases in data.items():
             show_creator = False
             for variant_base, variants in variant_bases.items():
                 if len(variants) <= 1:
                     if not show_creator:
-                        print(f'{creator}:', file=output_stream)
+                        print(f'{pad}{creator}:', file=output_stream)
                         show_creator = True
-                    print(f'  {variant_base}:', file=output_stream)
+                    print(f'{pad}  {variant_base}:', file=output_stream)
                     for basemodel, loras in variants.items():
-                        print(f'    {basemodel}:', file=output_stream)
+                        print(f'{pad}    {basemodel}:', file=output_stream)
                         for lora in loras:
-                            print(f'    {lora_desc[lora]}', file=output_stream)
+                            print(f'{pad}      - {lora_desc[lora]}', file=output_stream)
 
 
 if __name__ == '__main__':
@@ -407,7 +416,22 @@ if __name__ == '__main__':
     parser.add_argument('--singular', type=Path,
                         help='output YAML filename for models withtout other basemodel variants')
     parser.add_argument('--hint', type=Path, help='JSON filename for metadata override')
+    parser.add_argument('--list-root', type=str, help='root item name for --list')
+    parser.add_argument('--variant-root', type=str, help='root item name for --variant')
+    parser.add_argument('--singular-root', type=str, help='root item name for --singular')
     args = parser.parse_args()
+
+    message: list[str] = []
+    if args.list_root and not args.list:
+        message.append('--list-root requires --list')
+    if args.variant_root and not args.variant:
+        message.append('--variant-root requires --variant')
+    if args.singular_root and not args.singular:
+        message.append('--singular-root requires --singular')
+    if message:
+        print('\n'.join(message))
+        parser.print_help()
+        exit(1)
 
     logging.basicConfig(level=args.log)
     hints = {}
@@ -420,11 +444,11 @@ if __name__ == '__main__':
     if args.list or args.variant or args.singular:
         (basic, variant, lora) = yaml_fragment_read(args.target, args.variant or args.singular, hints)
         if args.list:
-            yaml_fragment_list(basic, lora, args.list)
+            yaml_fragment_list(basic, lora, args.list, args.list_root)
         if args.variant:
-            yaml_fragment_variant(variant, lora, args.variant)
+            yaml_fragment_variant(variant, lora, args.variant, args.variant_root)
         if args.singular:
-            yaml_fragment_singular(variant, lora, args.singular)
+            yaml_fragment_singular(variant, lora, args.singular, args.singular_root)
     if args.dump:
         dump(args.target, args.dump, hints)
     if args.summary or (not args.jinja and not args.list and not args.variant and not args.singular and not args.dump):
