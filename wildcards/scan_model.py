@@ -405,6 +405,33 @@ def yaml_fragment_singular(data: YamlFragmentVariant, lora_desc: LoraDesc, outpu
                             print(f'{pad}      - {lora_desc[lora]}', file=output_stream)
 
 
+def validate_wildcard_file(wildcard: Path, loras: set[str]):
+    print(f'Checking {str(wildcard)}...')
+    with wildcard.open(encoding='utf8') as input_stream:
+        for line in input_stream:  # currently, by line-wise
+            for match in re.finditer(r'<lora:([^>:]*):[\d.]*>', line):
+                if match.group(1) not in loras:
+                    print(f'  {match.group(0)} is not in target loras')
+
+
+def validate_wildcard(wildcards: list[Path], models: list[Path]):
+    loras = set()
+    for model in models:
+        if model.is_dir():
+            for root, dirs, files in os.walk(model):
+                for file in filter(filter_tensors, files):
+                    loras.add(Path(root, file).stem)
+        else:
+            loras.add(model.stem)
+    for wildcard in wildcards:
+        if wildcard.is_dir():
+            for root, dirs, files in os.walk(wildcard):
+                for file in files:
+                    validate_wildcard_file(Path(root, file), loras)
+        else:
+            validate_wildcard_file(wildcard, loras)
+
+
 if __name__ == '__main__':
     def log_level(level: str) -> int:
         num_level: Optional[Any] = getattr(logging, level.upper(), None)
@@ -416,7 +443,7 @@ if __name__ == '__main__':
         prog='scan_model.py',
         description='Scan safetensor model files and make support files for wildcards'
     )
-    parser.add_argument('target', type=Path, help='target files or directories', nargs='+')
+    parser.add_argument('target', type=Path, nargs='+', help='target model files or directories')
     parser.add_argument('--log', type=log_level, default='WARN')
     parser.add_argument('--summary', type=Path, help='output summary info, stdout is used if - is specified')
     parser.add_argument('--dump', type=Path, help='output metadata info, stdout is used if - is specified')
@@ -426,6 +453,8 @@ if __name__ == '__main__':
     parser.add_argument('--singular', type=Path,
                         help='output YAML filename for models withtout other basemodel variants')
     parser.add_argument('--check-place', action='store_true', help='Check possible variant locations')
+    parser.add_argument('--validate', type=Path, action='append',
+                        help='wildcard files or directories for lora name validation')
     parser.add_argument('--hint', type=Path, help='JSON filename for metadata override')
     parser.add_argument('--list-root', type=str, help='root item name for --list')
     parser.add_argument('--variant-root', type=str, help='root item name for --variant')
@@ -463,7 +492,16 @@ if __name__ == '__main__':
             yaml_fragment_variant(variant, lora, args.variant, args.variant_root)
         if args.singular:
             yaml_fragment_singular(variant, lora, args.singular, args.singular_root)
+    if args.validate:
+        validate_wildcard(args.validate, args.target)
     if args.dump:
         dump(args.target, args.dump, hints)
-    if args.summary or (not args.jinja and not args.list and not args.variant and not args.singular and not args.dump):
+    if args.summary or (
+        not args.jinja
+        and not args.list
+        and not args.variant
+        and not args.singular
+        and not args.validate
+        and not args.dump
+    ):
         summary(args.target, args.summary, hints)
