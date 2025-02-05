@@ -14,7 +14,8 @@ Metadata = list[dict] | dict
 YamlFragmentList = dict[str, list[Path]]
 YamlFragmentVariant = dict[str, dict[str, dict[str, list[Path]]]]
 LoraDesc = dict[Path, str]
-YamlFragment = Tuple[YamlFragmentList, YamlFragmentVariant, LoraDesc]
+PlaceRecord = dict[tuple[str, str], set[Path]]
+YamlFragment = Tuple[YamlFragmentList, YamlFragmentVariant, LoraDesc, PlaceRecord]
 
 
 def read_from_safetensors(inpath: Path) -> Optional[dict]:
@@ -319,7 +320,7 @@ def get_normalized_name(name: str):
     return name.strip()
 
 
-def yaml_fragment_read_file(target: Path, result: YamlFragment, want_variant: bool, hints: Hints):
+def yaml_fragment_read_file(target: Path, result: YamlFragment, want_variant: bool, check_place: bool, hints: Hints):
     logging.info(f'reading {target}')
     metadata_list = get_metadata_list(target, hints)
     actual_base_model = get_base_model(metadata_list)
@@ -337,18 +338,26 @@ def yaml_fragment_read_file(target: Path, result: YamlFragment, want_variant: bo
         normalized_name = get_normalized_name(target.stem)
         variant_base = result[1].setdefault(creator, {}).setdefault(normalized_name, {})
         variant_base.setdefault(actual_base_model, []).append(target)
+        if check_place:
+            result[3].setdefault((creator, normalized_name), set()).add(target.parent)
 
 
-def yaml_fragment_read(targets: list[Path], want_variant: bool, hints: Hints) -> YamlFragment:
-    result: YamlFragment = ({}, {}, {})
+def yaml_fragment_read(targets: list[Path], want_variant: bool, check_place: bool, hints: Hints) -> YamlFragment:
+    result: YamlFragment = ({}, {}, {}, {})
     for target in targets:
         if target.is_dir():
             for root, dirs, files in os.walk(target):
                 for file in filter(filter_tensors, files):
-                    yaml_fragment_read_file(Path(root, file), result, want_variant, hints)
+                    yaml_fragment_read_file(Path(root, file), result, want_variant, check_place, hints)
         else:
-            yaml_fragment_read_file(target, result, want_variant, hints)
+            yaml_fragment_read_file(target, result, want_variant, check_place, hints)
     return result
+
+
+def check_place(variants: PlaceRecord):
+    for (creator, name), places in variants.items():
+        if len(places) > 1:
+            logging.warning(f'{creator}/{name} is split in {" : ".join(map(str, places))}')
 
 
 def yaml_fragment_list(data: YamlFragmentList, lora_desc: LoraDesc, output: Path, root: str):
@@ -416,6 +425,7 @@ if __name__ == '__main__':
     parser.add_argument('--variant', type=Path, help='output YAML filename for basemodel variants')
     parser.add_argument('--singular', type=Path,
                         help='output YAML filename for models withtout other basemodel variants')
+    parser.add_argument('--check-place', action='store_true', help='Check possible variant locations')
     parser.add_argument('--hint', type=Path, help='JSON filename for metadata override')
     parser.add_argument('--list-root', type=str, help='root item name for --list')
     parser.add_argument('--variant-root', type=str, help='root item name for --variant')
@@ -443,7 +453,10 @@ if __name__ == '__main__':
     if args.jinja:
         override_list(args.target, args.jinja, hints)
     if args.list or args.variant or args.singular:
-        (basic, variant, lora) = yaml_fragment_read(args.target, args.variant or args.singular, hints)
+        want_variant = args.variant or args.singular or args.check_place
+        (basic, variant, lora, place) = yaml_fragment_read(args.target, want_variant, args.check_place, hints)
+        if args.check_place:
+            check_place(place)
         if args.list:
             yaml_fragment_list(basic, lora, args.list, args.list_root)
         if args.variant:
