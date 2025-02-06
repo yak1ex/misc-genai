@@ -481,7 +481,7 @@ if __name__ == '__main__':
 
     if args.jinja:
         override_list(args.target, args.jinja, hints)
-    if args.list or args.variant or args.singular:
+    if args.list or args.variant or args.singular or args.check_place:
         want_variant = args.variant or args.singular or args.check_place
         (basic, variant, lora, place) = yaml_fragment_read(args.target, want_variant, args.check_place, hints)
         if args.check_place:
@@ -501,6 +501,7 @@ if __name__ == '__main__':
         and not args.list
         and not args.variant
         and not args.singular
+        and not args.check_place
         and not args.validate
         and not args.dump
     ):
