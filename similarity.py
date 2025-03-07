@@ -2,7 +2,7 @@ import sys
 import torch
 import safetensors.torch
 from diffusers import AutoencoderKL
-from transformers import AutoProcessor, CLIPModel
+from transformers import AutoProcessor, CLIPModel, pipeline
 from accelerate.test_utils.testing import get_backend
 from PIL import Image
 import numpy as np
@@ -63,6 +63,16 @@ if __name__ == '__main__':
 
     distance = torch.norm(image_features1 - image_features2)
     cos_sim = torch.nn.functional.cosine_similarity(image_features1.view(-1), image_features2.view(-1),dim=0)
+    similarity_score_cos = (cos_sim + 1) / 2
+    print('Euclidean distance in latent space between Image 1 and Image 2: {0:.3f}\n'.format(distance.item()))
+    print('Cosine similarity between Image 1 and Image 2: {0:.3f}\n'.format(similarity_score_cos.item()))
+
+    pipe = pipeline(task="image-feature-extraction", model="google/vit-base-patch16-224", device=device, pool=True)
+    outputs = pipe([Image.open(image1).convert("RGB"), Image.open(image2).convert("RGB")])
+    tensor1 = torch.Tensor(outputs[0]).to(device)
+    tensor2 = torch.Tensor(outputs[1]).to(device)
+    distance = torch.norm(tensor1 - tensor2)
+    cos_sim = torch.nn.functional.cosine_similarity(tensor1, tensor2, dim=1)
     similarity_score_cos = (cos_sim + 1) / 2
     print('Euclidean distance in latent space between Image 1 and Image 2: {0:.3f}\n'.format(distance.item()))
     print('Cosine similarity between Image 1 and Image 2: {0:.3f}\n'.format(similarity_score_cos.item()))
