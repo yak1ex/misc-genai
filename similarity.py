@@ -3,13 +3,11 @@ import torch
 import safetensors.torch
 from diffusers import AutoencoderKL
 from transformers import AutoProcessor, CLIPModel
+from accelerate.test_utils.testing import get_backend
 from PIL import Image
 import numpy as np
 
-if torch.cuda.is_available():
-    device = 'cuda'
-else:
-    device = 'cpu'
+device, _, _ = get_backend()
 
 # Function to preprocess and encode images
 def preprocess_image(image_path):
