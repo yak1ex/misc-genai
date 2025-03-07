@@ -2,6 +2,7 @@ import sys
 import torch
 import safetensors.torch
 from diffusers import AutoencoderKL
+from transformers import AutoProcessor, CLIPModel
 from PIL import Image
 import numpy as np
 
@@ -48,5 +49,22 @@ if __name__ == '__main__':
     similarity_score_cos = (cos_sim + 1) / 2
 
     # Write the similarity score to a text file
+    print('Euclidean distance in latent space between Image 1 and Image 2: {0:.3f}\n'.format(distance.item()))
+    print('Cosine similarity between Image 1 and Image 2: {0:.3f}\n'.format(similarity_score_cos.item()))
+
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+    inputs1 = processor(images=Image.open(image1), return_tensors="pt")
+    image_features1 = model.get_image_features(**inputs1)
+
+    inputs2 = processor(images=Image.open(image2), return_tensors="pt")
+    image_features2 = model.get_image_features(**inputs2)
+
+    print(image_features1.shape, image_features2.shape)
+
+    distance = torch.norm(image_features1 - image_features2)
+    cos_sim = torch.nn.functional.cosine_similarity(image_features1.view(-1), image_features2.view(-1),dim=0)
+    similarity_score_cos = (cos_sim + 1) / 2
     print('Euclidean distance in latent space between Image 1 and Image 2: {0:.3f}\n'.format(distance.item()))
     print('Cosine similarity between Image 1 and Image 2: {0:.3f}\n'.format(similarity_score_cos.item()))
