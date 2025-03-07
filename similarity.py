@@ -52,13 +52,13 @@ if __name__ == '__main__':
     print('Euclidean distance in latent space between Image 1 and Image 2: {0:.3f}\n'.format(distance.item()))
     print('Cosine similarity between Image 1 and Image 2: {0:.3f}\n'.format(similarity_score_cos.item()))
 
-    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-    processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32", device_map=device)
+    processor = AutoProcessor.from_pretrained("openai/clip-vit-base-patch32", device_map=device)
 
-    inputs1 = processor(images=Image.open(image1), return_tensors="pt")
+    inputs1 = processor(images=Image.open(image1), return_tensors="pt").to(device)
     image_features1 = model.get_image_features(**inputs1)
 
-    inputs2 = processor(images=Image.open(image2), return_tensors="pt")
+    inputs2 = processor(images=Image.open(image2), return_tensors="pt").to(device)
     image_features2 = model.get_image_features(**inputs2)
 
     print(image_features1.shape, image_features2.shape)
