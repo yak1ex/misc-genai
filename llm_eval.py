@@ -6,7 +6,7 @@ from typing import Iterable
 
 import fire
 from ollama import Client
-from ruamel import yaml
+from ruamel.yaml import YAML
 
 
 @dataclass
@@ -147,15 +147,17 @@ def proc_eval_nonnative(
         history: list[dict]) -> Response:
     tools_function_calling_prompt = call.replace("{{TOOLS}}", json.dumps(tool_spec))
     query = make_query.get(query_history_type, make_query_default)(system, history, prompt)
+    messages = [
+        {"role": "system", "content": tools_function_calling_prompt},
+        {"role": "user", "content": f"Query: {query}"},
+    ]
     # FIXME: query_history_type
     response = client.chat(
         model=model_name,
-        messages=[
-            {"role": "system", "content": tools_function_calling_prompt},
-            {"role": "user", "content": f"Query: {query}"},
-        ],
+        messages=messages,
         stream=False,
     )
+    print(f"{messages=}\n{response=}")
     return extract_response_nonnative(response, tool_spec, prompt)
 
 
@@ -194,11 +196,12 @@ def eval(
         count: int = 10,
         url: str = 'http://localhost:11434') -> Evaluation:
     with open(yaml_file) as yaml_stream:
+        yaml = YAML(typ='safe')
         data = yaml.load(yaml_stream)
         system = data.get('system', {}).get(system_template, '')
         call = data.get('call', {}).get(call_template, '')
-        tool = data.get('call', {}).get(tool_template, {})
-        history = data.get('history', {}).get(history_key, {})
+        tool = data.get('tool', {}).get(tool_template, {})
+        history = data.get('history', {}).get(history_key, [])
         client = Client(host=url)
         data = [proc_eval(
             client,
