@@ -56,19 +56,20 @@ def average(sequence: Iterable[float]) -> float:
 
 
 def extract_response_native(response, tool_spec: dict, prompt: str) -> Response:
+    print(f"{response=}")
     response_data = Response()
     tool_calls = response.get('message').get('tool_calls', [])
     allowed_params = tool_spec.get('parameters', {}).get('properties', {}).keys()
     required_params = tool_spec.get('parameters', {}).get('required', [])
     for tool_call in tool_calls:
         response_data.calls += 1
-        tool_call.get('function', {}).get('name', '')
-        if tool_spec['name'] == tool_call.get('name', ''):
-            arguments = tool_call.get('parameters', {}).keys()
-            if (all(argument in allowed_params for argument in arguments) and
-                    all(required_param in arguments for required_param in required_params)):
+        target_function = tool_call.get('function', {})
+        if tool_spec['name'] == target_function.get('name', ''):
+            arguments = target_function.get('arguments', {})
+            if (all(argument in allowed_params for argument in arguments.keys()) and
+                    all(required_param in arguments.keys() for required_param in required_params)):
                 response_data.valid_calls += 1
-                response_data.prompts.append(tool_call.get('parameters', {}).get('prompts'))
+                response_data.prompts.append(arguments.get('prompt'))
     return response_data
 
 
@@ -81,7 +82,7 @@ def proc_eval_native(
         history_type: str,
         prompt: str,
         history: list[dict]) -> Response:
-    response = client.chat(model=model_name, messages=[
+    messages = [
         {
             'role': 'system',
             'content': system
@@ -91,7 +92,10 @@ def proc_eval_native(
             'role': 'user',
             'content': prompt
         }
-    ], tools=[{'type': 'function', 'function': {k: v for k, v in tool_spec if k != 'type'}}])
+    ]
+    tools = [{'type': 'function', 'function': {k: v for k, v in tool_spec.items() if k != 'type'}}]
+    response = client.chat(model=model_name, messages=messages, tools=tools)
+    print(f"{messages=}\n{tools=}\n{response=}")
     return extract_response_native(response, tool_spec, prompt)
 
 
@@ -104,7 +108,7 @@ def check_tool_call(tool_spec: dict, tool_call: dict) -> Response:
         if (all(argument in allowed_params for argument in arguments) and
                 all(required_param in arguments for required_param in required_params)):
             response.valid_calls += 1
-            response.prompts.append(tool_call.get('parameters', {}).get('prompts'))
+            response.prompts.append(tool_call.get('parameters', {}).get('prompt'))
     return response
 
 
@@ -175,18 +179,33 @@ def proc_eval(
     return proc_eval_(client, model_name, system, call, tool, history_type, prompt, history)
 
 
-def collect(data: list[Response]) -> Evaluation:
+def collect(prompt: str, data: list[Response]) -> Evaluation:
     # FIXME: Not yet implemented
-    # distance(prompt, prompt_in_response, ('delete', 'replace'))
-    # distance(prompt, prompt_in_response, ('equal', 'delete'))
-    # distance(prev_prompt_in_response, prompt_in_response)
-    return Evaluation(calls=0, valid_calls=0, preservation=0, enhancement=0, variation=0)
+    total = reduce(lambda x, y: x + y, data)
+    print(f"{data=}\n{total=}")
+    data_count = len(data)
+    prev_prompt_in_response, preservation, enhancement, variation = None, 0.0, 0.0, 0.0
+    for prompt_in_response in total.prompts:
+        preservation += distance(prompt, prompt_in_response, ('delete', 'replace'))
+        enhancement += distance(prompt, prompt_in_response, ('equal', 'delete'))
+        if prev_prompt_in_response:
+            variation += distance(prev_prompt_in_response, prompt_in_response)
+        prev_prompt_in_response = prompt_in_response
+    prompts_count = len(total.prompts)
+    return Evaluation(
+        calls=total.calls / data_count,
+        valid_calls=total.valid_calls / data_count,
+        preservation=preservation / data_count,
+        enhancement=enhancement / prompts_count,
+        variation=variation / prompts_count
+    )
 
 
 def eval(
         model_name: str,
         yaml_file: str,
         prompt: str,
+        preprompt: str = '',
         history_key: str = 'default',
         system_template: str = 'default',
         call_template: str = 'default',
@@ -194,7 +213,7 @@ def eval(
         native: bool = False,
         history_proc_type: str = 'default',
         count: int = 10,
-        url: str = 'http://localhost:11434') -> Evaluation:
+        url: str = 'http://localhost:11434') -> None:
     with open(yaml_file) as yaml_stream:
         yaml = YAML(typ='safe')
         data = yaml.load(yaml_stream)
@@ -211,9 +230,9 @@ def eval(
             tool,
             native,
             history_proc_type,
-            prompt,
+            preprompt + prompt,
             history) for _ in range(count)]
-        return collect(data)
+        print(collect(prompt, data))
 
 
 if __name__ == "__main__":

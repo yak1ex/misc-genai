@@ -40,6 +40,7 @@ response_json = response.json()
 
 # Extract the image URL
 image_url = response_json[0]["url"]
+print(response_json)
 
 # Replace localhost with cinematic in the URL
 image_url = image_url.replace("localhost", env.host)
