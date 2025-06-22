@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, replace
 from difflib import SequenceMatcher
 from functools import reduce
 import json
-from typing import Iterable
+from typing import Iterable, Literal
 
 import fire
 from ollama import Client
@@ -36,11 +36,19 @@ class Evaluation:
     variation: float
 
 
-def distance(before: str, after: str, penalty: Iterable[str] = ('insert', 'delete', 'replace')) -> float:
+def distance(before: str, after: str, penalty: Literal['default', 'insert', 'delete'] = 'default') -> float:
     def reducer(value: tuple[int, int], element: tuple[str, int, int, int, int]) -> tuple[int, int]:
         type, before_from, before_to, after_from, after_to = element
-        count = before_to - before_from + after_to - after_from
-        return value[0] + (0 if type in penalty else count), value[1] + count
+        cost = 0
+        if type in ('replace', 'insert') and penalty != 'delete':
+            cost += after_to - after_from
+        if type in ('replace', 'delete') and penalty != 'insert':
+            cost += before_to - before_from
+        return value[0] + cost, value[1] + before_to - before_from
+    if before == "":
+        raise ValueError("'before' MUST NOT be empty string")
+    if penalty not in ('default', 'insert', 'delete'):
+        raise ValueError("'penalty' MUST BE one of 'default', 'insert' and 'delete'")
     matcher = SequenceMatcher(None, before, after)
     reduced = reduce(reducer, matcher.get_opcodes(), (0, 0))
     return reduced[0] / reduced[1]
@@ -184,20 +192,19 @@ def collect(prompt: str, data: list[Response]) -> Evaluation:
     total = reduce(lambda x, y: x + y, data)
     print(f"{data=}\n{total=}")
     data_count = len(data)
-    prev_prompt_in_response, preservation, enhancement, variation = None, 0.0, 0.0, 0.0
-    for prompt_in_response in total.prompts:
-        preservation += distance(prompt, prompt_in_response, ('delete', 'replace'))
-        enhancement += distance(prompt, prompt_in_response, ('equal', 'delete'))
-        if prev_prompt_in_response:
-            variation += distance(prev_prompt_in_response, prompt_in_response)
-        prev_prompt_in_response = prompt_in_response
+    preservation = enhancement = variation = 0.0
+    for index, prompt_in_response in enumerate(total.prompts):
+        preservation += distance(prompt, prompt_in_response, 'delete')
+        enhancement += distance(prompt, prompt_in_response, 'insert')
+        for another in range(index):
+            variation += distance(prompt_in_response, total.prompts[another])
     prompts_count = len(total.prompts)
     return Evaluation(
         calls=total.calls / data_count,
         valid_calls=total.valid_calls / data_count,
-        preservation=preservation / data_count,
+        preservation=preservation / prompts_count,
         enhancement=enhancement / prompts_count,
-        variation=variation / prompts_count
+        variation=2 * variation / (prompts_count * (prompts_count - 1))
     )
 
 
@@ -236,6 +243,4 @@ def eval(
 
 
 if __name__ == "__main__":
-    print(distance('foo, bar, zot', 'foo, bar, zot, qux, quux', ('delete', 'replace')))
-    print(distance('foo, bar, zot', 'foo, bar, zot, qux, quux', ('equal', 'delete')))
     fire.Fire(eval)
