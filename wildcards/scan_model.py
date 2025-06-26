@@ -360,22 +360,24 @@ def check_place(variants: PlaceRecord):
             logging.warning(f'{creator}/{name} is split in {" : ".join(map(str, places))}')
 
 
-def yaml_fragment_list(data: YamlFragmentList, lora_desc: LoraDesc, output: Path, root: str):
-    pad = '' if root is None else '  '
+def yaml_fragment_list(data: YamlFragmentList, lora_desc: LoraDesc, output: Path, root: Optional[str]):
+    root_elems = [] if root is None else root.split('/')
+    pad = '  ' * len(root_elems)
     with open(output, 'w', encoding='utf8') as output_stream:
-        if root:
-            print(f'{root}:', file=output_stream)
+        for idx, name in enumerate(root_elems):
+            print(f'{"  " * idx}{name}:', file=output_stream)
         for basemodel, loras in data.items():
             print(f'{pad}{basemodel}:', file=output_stream)
             for lora in loras:
                 print(f'{pad}  - {lora_desc[lora]}', file=output_stream)
 
 
-def yaml_fragment_variant(data: YamlFragmentVariant, lora_desc: LoraDesc, output: Path, root: str):
-    pad = '' if root is None else '  '
+def yaml_fragment_variant(data: YamlFragmentVariant, lora_desc: LoraDesc, output: Path, root: Optional[str]):
+    root_elems = [] if root is None else root.split('/')
+    pad = '  ' * len(root_elems)
     with open(output, 'w', encoding='utf8') as output_stream:
-        if root:
-            print(f'{root}:', file=output_stream)
+        for idx, name in enumerate(root_elems):
+            print(f'{"  " * idx}{name}:', file=output_stream)
         for creator, variant_bases in data.items():
             for variant_base, variants in variant_bases.items():
                 if len(variants) > 1:
@@ -386,11 +388,12 @@ def yaml_fragment_variant(data: YamlFragmentVariant, lora_desc: LoraDesc, output
                             print(f'{pad}    - {lora_desc[lora]}', file=output_stream)
 
 
-def yaml_fragment_singular(data: YamlFragmentVariant, lora_desc: LoraDesc, output: Path, root: str):
-    pad = '' if root is None else '  '
+def yaml_fragment_singular(data: YamlFragmentVariant, lora_desc: LoraDesc, output: Path, root: Optional[str]):
+    root_elems = [] if root is None else root.split('/')
+    pad = '  ' * len(root_elems)
     with open(output, 'w', encoding='utf8') as output_stream:
-        if root:
-            print(f'{root}:', file=output_stream)
+        for idx, name in enumerate(root_elems):
+            print(f'{"  " * idx}{name}:', file=output_stream)
         for creator, variant_bases in data.items():
             show_creator = False
             for variant_base, variants in variant_bases.items():
