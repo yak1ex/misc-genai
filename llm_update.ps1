@@ -6,6 +6,7 @@ param(
 )
 
 if (-not $ShowOllama -and -not $ShowWebUI -and -not $UpdateOllama -and -not $UpdateWebUI) {
+    # FIXME: Now, there are many containers, so this is not a good idea to show all of them. We should only show the containers that we care about.
     wsl -e docker container list -a
     Exit
 }
