@@ -200,11 +200,11 @@ def collect(prompt: str, data: list[Response]) -> Evaluation:
             variation += distance(prompt_in_response, total.prompts[another])
     prompts_count = len(total.prompts)
     return Evaluation(
-        calls=total.calls / data_count,
-        valid_calls=total.valid_calls / data_count,
-        preservation=preservation / prompts_count,
-        enhancement=enhancement / prompts_count,
-        variation=2 * variation / (prompts_count * (prompts_count - 1))
+        calls=(total.calls / data_count) if data_count > 0 else 0.0,
+        valid_calls=(total.valid_calls / data_count) if data_count > 0 else 0.0,
+        preservation=(preservation / prompts_count) if prompts_count > 0 else 0.0,
+        enhancement=(enhancement / prompts_count) if prompts_count > 0 else 0.0,
+        variation=(2 * variation / (prompts_count * (prompts_count - 1))) if prompts_count > 1 else 0.0
     )
 
 
