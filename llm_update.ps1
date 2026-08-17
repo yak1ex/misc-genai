@@ -21,10 +21,9 @@ if ($ShowWebUI) {
 }
 
 if ($UpdateOllama) {
-    wsl -e docker pull ollama/ollama
     wsl -e docker stop ollama
     wsl -e docker rm ollama
-    wsl -e docker run -d --gpus=all -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
+    wsl -e docker run -d --gpus=all -v ollama:/root/.ollama --pull always --restart unless-stopped -p 11434:11434 --name ollama ollama/ollama
 }
 
 if ($UpdateWebUI) {
@@ -36,6 +35,6 @@ if ($UpdateWebUI) {
         '--add-host=host.docker.internal:host-gateway',
         '-v', 'open-webui:/app/backend/data',
         '--name', 'open-webui',
-        '--restart', 'always',
+        '--restart', 'unless-stopped',
         'ghcr.io/open-webui/open-webui:cuda')
 }
